@@ -816,7 +816,7 @@ export default function ChallengesPage() {
             const expected = (tc.expectedOutput || '').trim();
             const normActual = actualOutput.toLowerCase().replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
             const normExpected = expected.toLowerCase().replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
-            const isMatch = (actualOutput === expected) || (normExpected.length > 0 && (normActual === normExpected || normActual.split('\n').some(line => line.trim() === normExpected) || normActual.includes(normExpected)));
+            const isMatch = (actualOutput === expected) || (normExpected.length > 0 && (normActual === normExpected || normActual.split('\n').some(line => line.trim() === normExpected)));
 
             if (!isMatch) allPassed = false;
 
@@ -901,7 +901,7 @@ export default function ChallengesPage() {
           const expected = (tc.expectedOutput || '').trim();
           const normActual = actualOutput.toLowerCase().replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
           const normExpected = expected.toLowerCase().replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
-          const isMatch = (actualOutput === expected) || (normExpected.length > 0 && (normActual === normExpected || normActual.split('\n').some(line => line.trim() === normExpected) || normActual.includes(normExpected)));
+          const isMatch = (actualOutput === expected) || (normExpected.length > 0 && (normActual === normExpected || normActual.split('\n').some(line => line.trim() === normExpected)));
 
           if (!isMatch) allPassed = false;
           testResults.push({
