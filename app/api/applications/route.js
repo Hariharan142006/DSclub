@@ -3,8 +3,6 @@ import { verifyAdmin } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/db';
 import Application from '@/models/Application';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 export async function GET(request) {
   const authError = verifyAdmin(request);

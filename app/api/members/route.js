@@ -5,8 +5,6 @@ import Member from '@/models/Member';
 import { sendWelcomeEmail } from '@/lib/email';
 import { safeString } from '@/lib/apiHelpers';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 // Helper function to generate unique random DSCAI Member ID (e.g., DSCAI4829)
 async function generateUniqueMemberId() {

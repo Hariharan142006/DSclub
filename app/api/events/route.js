@@ -3,7 +3,6 @@ import { verifyAdmin } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/db';
 import Event from '@/models/Event';
 
-export const dynamic = 'force-dynamic';
 export const revalidate = 60;
 
 export async function GET() {

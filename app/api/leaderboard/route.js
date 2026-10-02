@@ -3,6 +3,8 @@ import { connectToDatabase } from '@/lib/db';
 import Member from '@/models/Member';
 import Setting from '@/models/Setting';
 
+export const revalidate = 60;
+
 export async function GET(req) {
   try {
     await connectToDatabase();

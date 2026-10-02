@@ -4,8 +4,6 @@ import { connectToDatabase } from '@/lib/db';
 import Application from '@/models/Application';
 import Member from '@/models/Member';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 // Helper function to generate unique random DSCAI Member ID (e.g., DSCAI4829)
 async function generateUniqueMemberId() {
