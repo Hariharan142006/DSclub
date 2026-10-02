@@ -3,6 +3,8 @@ import { verifyAdmin } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/db';
 import Setting from '@/models/Setting';
 
+export const revalidate = 60;
+
 export async function GET() {
   try {
     await connectToDatabase();

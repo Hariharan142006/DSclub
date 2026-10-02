@@ -11,22 +11,25 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lastSynced, setLastSynced] = useState('--:--:--');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
-    fetchLeaderboard(true);
+    fetchLeaderboard(page, true);
     const interval = setInterval(() => {
-      fetchLeaderboard(false);
-    }, 15000); // 15-second live telemetry polling
+      fetchLeaderboard(page, false);
+    }, 60000); // 60-second live telemetry polling (reduced from 15s to save bandwidth)
     return () => clearInterval(interval);
-  }, []);
+  }, [page]);
 
-  const fetchLeaderboard = async (showLoading = true) => {
+  const fetchLeaderboard = async (currentPage, showLoading = true) => {
     if (showLoading) setLoading(true);
     try {
-      const res = await fetch('/api/leaderboard');
+      const res = await fetch(`/api/leaderboard?page=${currentPage}&limit=50`);
       const data = await res.json();
-      if (res.ok && Array.isArray(data)) {
-        setMembers(data);
+      if (res.ok && data.members) {
+        setMembers(data.members);
+        setTotalPages(data.totalPages);
         setError('');
         setLastSynced(new Date().toLocaleTimeString());
       } else if (showLoading) {
@@ -83,7 +86,7 @@ export default function LeaderboardPage() {
         ) : (
           <>
             {/* Top 3 Podium */}
-            {members.length >= 1 && (
+            {page === 1 && members.length >= 1 && (
               <div className={styles.podiumGrid}>
                 {/* Rank 2 */}
                 {members[1] ? (
@@ -147,17 +150,17 @@ export default function LeaderboardPage() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ type: "spring", stiffness: 350, damping: 25 }}
-                        className={idx < 3 ? styles.topRow : ''}
+                        className={page === 1 && idx < 3 ? styles.topRow : ''}
                       >
                         <td className={styles.rankCell}>
-                          {idx === 0 ? (
+                          {page === 1 && idx === 0 ? (
                             <span className={styles.badge1}>🥇 1st</span>
-                          ) : idx === 1 ? (
+                          ) : page === 1 && idx === 1 ? (
                             <span className={styles.badge2}>🥈 2nd</span>
-                          ) : idx === 2 ? (
+                          ) : page === 1 && idx === 2 ? (
                             <span className={styles.badge3}>🥉 3rd</span>
                           ) : (
-                            <span className={styles.badgeStandard}>#{idx + 1}</span>
+                            <span className={styles.badgeStandard}>#{(page - 1) * 50 + idx + 1}</span>
                           )}
                         </td>
                         <td className={styles.nameCell}>
@@ -179,6 +182,26 @@ export default function LeaderboardPage() {
                 </tbody>
               </table>
             </div>
+
+            {totalPages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1.5rem', alignItems: 'center' }}>
+                <button 
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  style={{ padding: '0.5rem 1rem', background: '#334155', color: 'white', borderRadius: '8px', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.5 : 1, border: 'none', fontWeight: 600 }}
+                >
+                  Previous
+                </button>
+                <span style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Page {page} of {totalPages}</span>
+                <button 
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  style={{ padding: '0.5rem 1rem', background: '#3b82f6', color: 'white', borderRadius: '8px', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.5 : 1, border: 'none', fontWeight: 600 }}
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>
