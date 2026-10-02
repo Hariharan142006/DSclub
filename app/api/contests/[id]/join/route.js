@@ -1,0 +1,68 @@
+import { NextResponse } from 'next/server';
+import { connectToDatabase } from '@/lib/db';
+import Contest from '@/models/Contest';
+import { safeString } from '@/lib/apiHelpers';
+
+export async function POST(request, { params }) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    const { memberId, name } = body;
+
+    if (!memberId || !name) {
+      return NextResponse.json({ error: 'Missing memberId or name' }, { status: 400 });
+    }
+
+    const cleanMemberId = safeString(memberId).trim().toUpperCase();
+
+    await connectToDatabase();
+    const contest = await Contest.findById(id);
+
+    if (!contest) {
+      return NextResponse.json({ error: 'Contest not found' }, { status: 404 });
+    }
+
+    if (!contest.isActive) {
+      return NextResponse.json({ error: 'This contest arena is currently closed or inactive' }, { status: 403 });
+    }
+
+    // Check anti-cheat restriction
+    if (contest.restrictedMembers && contest.restrictedMembers.some(m => m && String(m).trim().toUpperCase() === cleanMemberId)) {
+      return NextResponse.json({ error: `Member ID "${memberId}" is restricted from entering this contest arena due to anti-cheat violations.` }, { status: 403 });
+    }
+
+    // Check if student has already completed or exited this contest arena
+    if (contest.completedMembers && contest.completedMembers.some(m => m && String(m).trim().toUpperCase() === cleanMemberId)) {
+      return NextResponse.json({ error: `⛔ You (${cleanMemberId}) have already completed or exited this contest arena. Re-entry is strictly prohibited.` }, { status: 403 });
+    }
+
+    const completedParticipant = contest.activeParticipants?.find(
+      p => p && p.memberId && String(p.memberId).trim().toUpperCase() === cleanMemberId && p.status === 'completed'
+    );
+    if (completedParticipant) {
+      return NextResponse.json({ error: `⛔ You (${cleanMemberId}) have already completed or exited this contest arena. Re-entry is strictly prohibited.` }, { status: 403 });
+    }
+
+    // Check if user is already in activeParticipants
+    const existingParticipant = contest.activeParticipants?.find(
+      (p) => p && p.memberId && String(p.memberId).trim().toUpperCase() === cleanMemberId
+    );
+
+    if (!existingParticipant) {
+      contest.activeParticipants = contest.activeParticipants || [];
+      contest.activeParticipants.push({
+        memberId: cleanMemberId,
+        name: name || cleanMemberId,
+        joinedAt: new Date(),
+        status: 'in_progress',
+        score: 0
+      });
+      await contest.save();
+    }
+
+    return NextResponse.json({ success: true, message: 'Joined successfully' });
+  } catch (error) {
+    console.error('Error joining contest:', error);
+    return NextResponse.json({ error: 'Failed to join contest: ' + error.message }, { status: 500 });
+  }
+}

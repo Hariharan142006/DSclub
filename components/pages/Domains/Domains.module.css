@@ -1,0 +1,52 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.domainNode {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  font-family: 'JetBrains Mono', monospace;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.domainNode:hover {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.1);
+}
+
+.nodeHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(0,0,0,0.4);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.iconNode {
+  color: var(--accent-purple);
+}
+
+.nodeTitle {
+  font-size: 0.9rem;
+  color: #89ddff;
+}
+
+.nodeBody {
+  padding: 1.5rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.hash {
+  color: #676e95;
+}
+
+.nodeBody p {
+  font-size: 0.85rem;
+  color: #a6accd;
+  line-height: 1.6;
+}

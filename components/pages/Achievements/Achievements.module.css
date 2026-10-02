@@ -1,0 +1,106 @@
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.metricCard {
+  background: rgba(0,0,0,0.5);
+  border: 1px solid var(--border-color);
+  padding: 2rem;
+  min-width: 200px;
+  box-shadow: inset 0 0 10px rgba(0, 240, 255, 0.05);
+  transition: all 0.3s ease;
+  flex: 1;
+  position: relative;
+}
+
+.metricCard::before {
+  content: '';
+  position: absolute;
+  left: 0; bottom: 0; width: 10px; height: 10px;
+  border-left: 2px solid var(--accent-cyan);
+  border-bottom: 2px solid var(--accent-cyan);
+}
+
+.metricCard::after {
+  content: '';
+  position: absolute;
+  right: 0; top: 0; width: 10px; height: 10px;
+  border-right: 2px solid var(--accent-cyan);
+  border-top: 2px solid var(--accent-cyan);
+}
+
+.metricCard:hover {
+  border-color: var(--accent-cyan);
+  box-shadow: inset 0 0 20px rgba(0, 240, 255, 0.1), 0 0 15px rgba(0, 240, 255, 0.1);
+}
+
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.pulseIcon {
+  color: #39FF14;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.5; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.status {
+  font-size: 0.75rem;
+  color: #39FF14;
+  letter-spacing: 1px;
+}
+
+.dataReadout {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.count {
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.blinker {
+  font-size: 2rem;
+  color: var(--accent-cyan);
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+.label {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 768px) {
+  .metricCard {
+    flex: 1 1 40%;
+  }
+}
+@media (max-width: 480px) {
+  .metricCard {
+    flex: 1 1 100%;
+  }
+}

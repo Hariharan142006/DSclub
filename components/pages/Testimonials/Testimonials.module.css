@@ -1,0 +1,125 @@
+.sliderContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.navBtn {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.navBtn:hover {
+  background: var(--accent-cyan);
+  color: white;
+  border-color: var(--accent-cyan);
+}
+
+.sliderWindow {
+  flex: 1;
+  overflow: hidden;
+  border-radius: 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  padding: 3rem;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+}
+
+.quoteIcon {
+  color: var(--accent-cyan);
+  opacity: 0.2;
+  position: absolute;
+  top: 2rem;
+  left: 2rem;
+}
+
+.quoteText {
+  font-size: 1.25rem;
+  line-height: 1.8;
+  color: var(--text-primary);
+  margin-bottom: 2rem;
+  position: relative;
+  /* z-index: 1; */
+  font-style: italic;
+}
+
+.author {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--accent-cyan);
+}
+
+.author h4 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.author span {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 2rem;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border-color);
+  border: none;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.activeDot {
+  background: var(--accent-cyan);
+  transform: scale(1.2);
+}
+
+@media (max-width: 768px) {
+  .sliderContainer {
+    position: relative;
+  }
+  .navBtn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    /* z-index: 10; */
+  }
+  .navBtn:first-child { left: -15px; }
+  .navBtn:last-child { right: -15px; }
+  .sliderWindow {
+    padding: 2rem;
+  }
+  .quoteText {
+    font-size: 1.1rem;
+  }
+}

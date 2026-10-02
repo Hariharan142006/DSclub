@@ -1,0 +1,293 @@
+.leaderboardContainer {
+  min-height: 100vh;
+  padding: 8rem 2rem 5rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  color: #fff;
+}
+
+.heroSection {
+  text-align: center;
+  margin-bottom: 3.5rem;
+}
+
+.heroBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(250, 204, 21, 0.1);
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  color: #facc15;
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-bottom: 1rem;
+}
+
+.heroTitle {
+  font-size: 3rem;
+  font-weight: 900;
+  margin: 0 0 1rem 0;
+  background: linear-gradient(90deg, #fff, #facc15, #38bdf8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 2px;
+}
+
+.heroSub {
+  color: #94a3b8;
+  font-size: 1.1rem;
+  max-width: 650px;
+  margin: 0 auto;
+}
+
+.contentBox {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 2.5rem;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+}
+
+.loadingBox, .errorBox, .emptyBox {
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.spinner {
+  animation: spin 1.5s linear infinite;
+  color: #00f0ff;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.errorBox h3, .emptyBox h3 {
+  font-size: 1.5rem;
+  margin: 1rem 0 0.5rem 0;
+}
+
+.errorBox p, .emptyBox p {
+  color: #94a3b8;
+  max-width: 450px;
+  margin: 0 auto 1.5rem auto;
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #38bdf8;
+  color: #000;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.backBtn:hover {
+  opacity: 0.9;
+}
+
+/* Podium Grid */
+.podiumGrid {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr 1fr;
+  gap: 1.5rem;
+  align-items: flex-end;
+  margin-bottom: 3.5rem;
+  padding: 0 1rem;
+}
+
+.podiumCard {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 1.5rem;
+  text-align: center;
+  position: relative;
+  transition: transform 0.3s;
+}
+
+.podiumCard:hover {
+  transform: translateY(-5px);
+}
+
+.rank1 {
+  background: linear-gradient(180deg, rgba(250, 204, 21, 0.15), rgba(15, 23, 42, 0.9));
+  border: 2px solid #facc15;
+  padding-top: 2.2rem;
+  box-shadow: 0 0 30px rgba(250, 204, 21, 0.2);
+}
+
+.rank2 {
+  border-color: #94a3b8;
+}
+
+.rank3 {
+  border-color: #d97706;
+}
+
+.crownTag {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #facc15;
+  color: #000;
+  font-size: 0.7rem;
+  font-weight: 900;
+  padding: 0.2rem 0.75rem;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.5);
+}
+
+.medalBadge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.podiumAvatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.9);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem auto;
+}
+
+.podiumName {
+  font-size: 1.2rem;
+  font-weight: 800;
+  margin: 0 0 0.25rem 0;
+  color: #fff;
+}
+
+.podiumDept {
+  display: block;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-bottom: 0.75rem;
+}
+
+.podiumScore {
+  font-size: 1.3rem;
+  font-weight: 900;
+  color: #00f0ff;
+}
+
+/* Standings Table */
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.standingsTable {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.standingsTable th {
+  padding: 1rem;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  letter-spacing: 1px;
+}
+
+.standingsTable td {
+  padding: 1.2rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.95rem;
+  vertical-align: middle;
+}
+
+.topRow {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.rankCell {
+  font-weight: 700;
+  width: 90px;
+}
+
+.badge1, .badge2, .badge3 {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.badgeStandard {
+  color: #64748b;
+  font-family: monospace;
+  font-size: 1rem;
+}
+
+.nameCell strong {
+  display: block;
+  font-size: 1.05rem;
+  color: #fff;
+}
+
+.roleSub {
+  display: block;
+  font-size: 0.75rem;
+  color: #38bdf8;
+}
+
+.idCell code {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  color: #00f0ff;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.deptCell {
+  color: #cbd5e1;
+}
+
+.scoreCell {
+  font-size: 1.2rem;
+  color: #facc15;
+}
+
+.xpTag {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .podiumGrid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .heroTitle {
+    font-size: 2.2rem;
+  }
+}

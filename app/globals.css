@@ -1,0 +1,272 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700;800&display=swap');
+
+:root {
+  /* Enforcing Dark Dashboard Theme Globally */
+  --bg-primary: #05080e; /* Deep space black */
+  --bg-secondary: #0c121e; /* Slate panel background */
+  --bg-glass: rgba(12, 18, 30, 0.7);
+  
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #475569;
+  
+  /* Core Tech Accents */
+  --accent-cyan: #00f0ff;
+  --accent-blue: #3b82f6;
+  --accent-purple: #b026ff;
+  --accent-glow: rgba(0, 240, 255, 0.3);
+  
+  --border-color: rgba(0, 240, 255, 0.15);
+  --glass-border: rgba(0, 240, 255, 0.2);
+  
+  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 25px rgba(0, 240, 255, 0.25);
+  
+  --theme-transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease;
+}
+
+/* Force dark mode tokens essentially removing light mode logic */
+[data-theme='dark'], [data-theme='light'] {
+  --bg-primary: #05080e;
+  --bg-secondary: #0c121e;
+  --text-primary: #e2e8f0;
+  --accent-cyan: #00f0ff;
+  --border-color: rgba(0, 240, 255, 0.2);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: var(--theme-transition);
+  scroll-behavior: smooth;
+  /* Dot grid only — no fixed attachment to avoid scroll repaint */
+  background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+
+/* Atmospheric glow as fixed pseudo-element (avoids background-attachment:fixed repaint) */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(0, 240, 255, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 100% 100%, rgba(176, 38, 255, 0.05) 0%, transparent 50%);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: -0.5px;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul {
+  list-style-type: none;
+}
+
+/* Glassmorphism/HUD utility */
+.glass {
+  background: var(--bg-glass);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 0 15px rgba(0, 240, 255, 0.05);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 15px var(--accent-glow);
+}
+
+.section {
+  padding: 6rem 2rem;
+  max-width: 1280px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* Data Science Section Titles */
+.section-title {
+  font-size: 2.25rem;
+  font-weight: 800;
+  text-align: center;
+  margin-bottom: 4rem;
+  color: var(--text-primary);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+}
+
+.section-title::before, .section-title::after {
+  content: '/>';
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  opacity: 0.5;
+}
+
+.section-title::before {
+  content: '<';
+}
+
+/* Base Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  background: rgba(0, 240, 255, 0.1);
+  color: var(--accent-cyan);
+  border: 1px solid var(--accent-cyan);
+  border-radius: 4px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  gap: 0.5rem;
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(0,240,255,0.2), transparent);
+  transition: all 0.5s ease;
+}
+
+.btn:hover::before {
+  left: 100%;
+}
+
+.btn-primary {
+  background: rgba(0, 240, 255, 0.1);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+}
+
+.btn-primary:hover {
+  background: rgba(0, 240, 255, 0.2);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+}
+
+.btn-secondary {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+  background: transparent;
+}
+
+.btn-secondary:hover {
+  border-color: var(--text-primary);
+  background: rgba(255,255,255,0.05);
+}
+
+@media (max-width: 768px) {
+  .section {
+    padding: 4rem 1.5rem;
+  }
+  .section-title {
+    font-size: 1.75rem;
+    margin-bottom: 2.5rem;
+  }
+}
+
+/* Custom Sci-Fi Cursor */
+
+
+.cursor-dot {
+  position: fixed;
+  top: 0; left: 0;
+  width: 4px;
+  height: 4px;
+  background: var(--accent-cyan);
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate3d(-100px, -100px, 0) translate(-50%, -50%);
+  box-shadow: 0 0 8px var(--accent-cyan);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: transform 0.1s;
+}
+
+.cursor-dot .crosshair-x,
+.cursor-dot .crosshair-y {
+  position: absolute;
+  background: var(--accent-cyan);
+  box-shadow: 0 0 6px var(--accent-cyan);
+}
+
+.cursor-dot .crosshair-x {
+  width: 16px;
+  height: 2px;
+}
+
+.cursor-dot .crosshair-y {
+  width: 2px;
+  height: 16px;
+}
+
+.cursor-ring {
+  position: fixed;
+  top: 0; left: 0;
+  width: 28px;
+  height: 28px;
+  pointer-events: none;
+  z-index: 9998;
+  transform: translate3d(-100px, -100px, 0) translate(-50%, -50%);
+  transition: width 0.2s ease, height 0.2s ease, opacity 0.2s ease;
+}
+
+.cursor-ring .corner {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border: 2px solid var(--accent-cyan);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.corner.top-left {
+  top: 0; left: 0;
+  border-right: none;
+  border-bottom: none;
+}
+.corner.top-right {
+  top: 0; right: 0;
+  border-left: none;
+  border-bottom: none;
+}
+.corner.bottom-left {
+  bottom: 0; left: 0;
+  border-right: none;
+  border-top: none;
+}
+.corner.bottom-right {
+  bottom: 0; right: 0;
+  border-left: none;
+  border-top: none;
+}

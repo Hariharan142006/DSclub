@@ -1,0 +1,138 @@
+.notebookTabs {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 3rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.tabBtn, .tabActive {
+  background: rgba(0,0,0,0.5);
+  border: 1px solid var(--border-color);
+  padding: 0.5rem 1.5rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.3s;
+  font-family: inherit;
+}
+
+.tabBtn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.tabActive {
+  background: rgba(0, 240, 255, 0.1);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 2.5rem;
+}
+
+.logCard {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.flagshipCard {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.15), inset 0 0 30px rgba(0, 240, 255, 0.05);
+  grid-column: 1 / -1;
+}
+
+.flagshipCard .cardImg {
+  height: 250px;
+  filter: grayscale(30%) sepia(10%) hue-rotate(160deg);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #000;
+  border-bottom: 1px solid var(--border-color);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--accent-cyan);
+}
+
+.cardImg {
+  height: 180px;
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border-color);
+  filter: grayscale(80%) sepia(20%) hue-rotate(160deg);
+  transition: filter 0.5s;
+}
+
+.cardImgTag {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.logCard:hover .cardImg {
+  filter: grayscale(0) sepia(0);
+}
+
+.scanline {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 5px;
+  background: rgba(0, 240, 255, 0.3);
+  animation: scan 4s linear infinite;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+}
+
+@keyframes scan {
+  0% { top: 0; }
+  100% { top: 100%; }
+}
+
+.cardBody {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.cardBody h3 {
+  font-size: 1.15rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+}
+
+.desc {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+  flex: 1;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.metaData {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--border-color);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.metaData span {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}

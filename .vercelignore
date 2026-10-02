@@ -1,0 +1,7 @@
+node_modules/
+.next/
+out/
+build_output.txt
+build_output.log
+lint.txt
+godaddy-deployment.zip
