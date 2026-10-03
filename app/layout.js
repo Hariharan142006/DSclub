@@ -7,6 +7,7 @@ import JsonLd from '../components/atoms/JsonLd/JsonLd';
 import FaqJsonLd from '../components/molecules/FaqJsonLd/FaqJsonLd';
 import EventsJsonLd from '../components/molecules/EventsJsonLd/EventsJsonLd';
 import Script from 'next/script';
+import { Analytics } from '@vercel/analytics/next';
 
 export const metadata = {
   metadataBase: new URL('https://dsc-panimalar-ads.in'),
@@ -109,6 +110,7 @@ export default function RootLayout({ children }) {
             <main>{children}</main>
             <Footer />
           </div>
+          <Analytics />
         </ThemeProvider>
       </body>
     </html>
