@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Trophy, Plus, Edit2, Trash2, RefreshCw, X, CheckCircle2, Power, Calendar, Clock, Code2, HelpCircle, ShieldAlert, Unlock, FileText, AlertCircle, Loader2, Play, Pause, Square, Eye, Timer, DownloadCloud, Search, Users } from 'lucide-react';
+import { Trophy, Plus, Edit2, Trash2, RefreshCw, X, CheckCircle2, Power, Calendar, Clock, Code2, HelpCircle, ShieldAlert, Unlock, FileText, AlertCircle, Loader2, Play, Pause, Square, Eye, Timer, DownloadCloud, UploadCloud, Search, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from '../Admin.module.css';
 
@@ -44,6 +44,7 @@ export default function TSPManager() {
   const [showWhitelistPreviewModal, setShowWhitelistPreviewModal] = useState(false);
   const [showWhitelistViewModal, setShowWhitelistViewModal] = useState(false);
   const [whitelistSearchQuery, setWhitelistSearchQuery] = useState('');
+  const [whitelistCodeFilter, setWhitelistCodeFilter] = useState('ALL');
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [showActiveParticipantsModal, setShowActiveParticipantsModal] = useState(false);
   const [activeParticipantSearch, setActiveParticipantSearch] = useState('');
@@ -193,6 +194,83 @@ export default function TSPManager() {
       accessCodes: updatedCodes,
       passcode: updatedCodes[0]?.code || ''
     }));
+  };
+
+  const handleExportWhitelistExcel = async (tsp, filteredList) => {
+    try {
+      const XLSX = await import('xlsx');
+      if (!filteredList || filteredList.length === 0) {
+        alert('No students to export.');
+        return;
+      }
+
+      const rows = filteredList.map((stu, index) => ({
+        'S.No': index + 1,
+        'Roll No / ID': stu.rollNo || stu.identifier || '',
+        'Name': stu.name || 'Unknown',
+        'Register No': stu.registerNo || '',
+        'Mail ID': stu.email || '',
+        'Assigned Code': stu.assignedCode || 'ANY'
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      worksheet['!cols'] = [{ wch: 6 }, { wch: 20 }, { wch: 25 }, { wch: 20 }, { wch: 25 }, { wch: 15 }];
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Whitelist');
+      const cleanTitle = (tsp.title || 'TSP').replace(/[^a-zA-Z0-9]/g, '_');
+      XLSX.writeFile(workbook, `${cleanTitle}_Whitelist.xlsx`);
+    } catch (error) {
+      console.error('Error exporting whitelist Excel:', error);
+      alert('Failed to export Excel.');
+    }
+  };
+
+  const handleExportWhitelistPDF = async (tsp, filteredList) => {
+    setGeneratingPdf(true);
+    try {
+      const { jsPDF } = await import('jspdf');
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
+      
+      if (!filteredList || filteredList.length === 0) {
+        alert('No students to export.');
+        setGeneratingPdf(false);
+        return;
+      }
+
+      const doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Whitelisted Participants - ${tsp.title || 'TSP'}`, 14, 20);
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Total Filtered Students: ${filteredList.length}`, 14, 28);
+
+      const tableData = filteredList.map((stu, i) => [
+        i + 1,
+        stu.rollNo || stu.identifier || '—',
+        stu.name || 'Unknown',
+        stu.registerNo || '—',
+        stu.email || '—',
+        stu.assignedCode || 'ANY'
+      ]);
+
+      autoTable(doc, {
+        startY: 35,
+        head: [['#', 'Roll No', 'Name', 'Register No', 'Mail ID', 'Assigned Code']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [15, 23, 42], textColor: 255 },
+        styles: { fontSize: 8, cellPadding: 3 }
+      });
+
+      const cleanTitle = (tsp.title || 'TSP').replace(/[^a-zA-Z0-9]/g, '_');
+      doc.save(`${cleanTitle}_Whitelist.pdf`);
+    } catch (error) {
+      console.error('Error exporting whitelist PDF:', error);
+      alert('Failed to export PDF.');
+    }
+    setGeneratingPdf(false);
   };
 
   const handleExportParticipantsExcel = async (tsp, specificCode = null) => {
@@ -1007,9 +1085,16 @@ export default function TSPManager() {
     }
   };
 
-  const handleExcelUpload = async (e, tsp) => {
+  const handleExcelUpload = async (e, tsp, prefilledBatchCode = null) => {
     const file = e.target.files[0];
     if (!file) return;
+    
+    let batchCode = prefilledBatchCode;
+    if (batchCode === null) {
+      const batchCodeInput = window.prompt("Optional: Enter an Access Code to assign to all students in this Excel file.\n(Leave blank if your Excel file already has an 'AssignedCode' column)");
+      batchCode = (batchCodeInput || '').trim().toUpperCase();
+    }
+    
     setUploadingExcel(true);
     
     try {
@@ -1033,6 +1118,7 @@ export default function TSPManager() {
             let registerNo = '';
             let name = '';
             let email = '';
+              let assignedCode = batchCode;
             
             for (const [key, value] of Object.entries(row)) {
               const k = key.toLowerCase().trim();
@@ -1060,7 +1146,8 @@ export default function TSPManager() {
                 rollNo: rollNo || identifier,
                 registerNo: registerNo || '',
                 name: name || 'Unknown Name',
-                email: email || ''
+                email: email || '',
+                  assignedCode: assignedCode || ''
               });
             }
           });
@@ -1374,7 +1461,8 @@ export default function TSPManager() {
         rollNo: cleanRollNo,
         name: cleanName,
         registerNo: cleanRegisterNo,
-        email: cleanEmail
+        email: cleanEmail,
+          assignedCode: (manualWhitelistEntry.assignedCode || '').trim()
       }];
       
       const res = await fetch(`/api/tsp/${tsp._id || tsp.id}`, {
@@ -1390,7 +1478,7 @@ export default function TSPManager() {
           setSelectedTSPForManage(data);
         }
         setWhitelistManualOpen(false);
-        setManualWhitelistEntry({ rollNo: '', name: '', registerNo: '', email: '', identifier: '' });
+        setManualWhitelistEntry({ rollNo: '', name: '', registerNo: '', email: '', identifier: '', assignedCode: '' });
       } else {
         alert('Failed to add student: ' + data.error);
       }
@@ -1613,7 +1701,8 @@ export default function TSPManager() {
 
                   return codesList.map((cObj, cIdx) => {
                     const cCode = (cObj.code || '').trim().toUpperCase();
-                    const candidatesCount = (selectedTSPForManage.activeParticipants || []).filter(
+                    const whitelistedCount = (selectedTSPForManage.whitelistedStudents || []).filter(s => (s.assignedCode || '').trim().toUpperCase() === cCode).length;
+                      const candidatesCount = (selectedTSPForManage.activeParticipants || []).filter(
                       p => (p.passcodeUsed || '').trim().toUpperCase() === cCode
                     ).length;
 
@@ -1631,8 +1720,8 @@ export default function TSPManager() {
                             )}
                           </div>
                           <div style={{ fontSize: '0.75rem', color: '#38bdf8', marginTop: '0.25rem', fontWeight: 600 }}>
-                            👥 {candidatesCount} Student{candidatesCount === 1 ? '' : 's'} Registered
-                          </div>
+                              👥 {whitelistedCount} Assigned • {candidatesCount} Participated
+                            </div>
                         </div>
 
                         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
@@ -2929,6 +3018,32 @@ export default function TSPManager() {
                     style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', outline: 'none' }}
                   />
                 </div>
+                  <div className={styles.formGroup} style={{ marginTop: '1rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#e2e8f0', fontSize: '0.88rem', marginBottom: '0.4rem', fontWeight: 600 }}>
+                      Assigned Passcode <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 'normal' }}>(Optional)</span>
+                    </label>
+                    <select
+                        value={manualWhitelistEntry.assignedCode || ''}
+                        onChange={(e) => setManualWhitelistEntry({ ...manualWhitelistEntry, assignedCode: e.target.value })}
+                        className={styles.inputField}
+                        style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', outline: 'none' }}
+                      >
+                        <option value="" style={{ background: '#0f172a', color: '#cbd5e1' }}>-- No Specific Code --</option>
+                        {(() => {
+                          let codes = [];
+                          if (Array.isArray(selectedTSPForManage?.accessCodes) && selectedTSPForManage.accessCodes.length > 0) {
+                            codes = selectedTSPForManage.accessCodes;
+                          } else if (selectedTSPForManage?.passcode) {
+                            codes = [{ code: selectedTSPForManage.passcode, label: 'Default Code' }];
+                          }
+                          return codes.map((c, idx) => (
+                            <option key={idx} value={c.code} style={{ background: '#0f172a', color: '#fff' }}>
+                              {c.code} {c.label ? `(${c.label})` : ''}
+                            </option>
+                          ));
+                        })()}
+                      </select>
+                  </div>
               </div>
               <div className={styles.modalFooter} style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
                 <button type="button" onClick={() => setWhitelistManualOpen(false)} className={styles.cancelBtn} style={{ flex: 1, padding: '0.75rem', background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
@@ -3026,7 +3141,7 @@ export default function TSPManager() {
 
               <div className={styles.modalBody} style={{ padding: '1.25rem 0' }}>
                 {/* Search Bar & Quick Add */}
-                <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, position: 'relative', minWidth: '220px' }}>
                     <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
                     <input
@@ -3058,6 +3173,35 @@ export default function TSPManager() {
                       </button>
                     )}
                   </div>
+                  
+                  <select
+                    value={whitelistCodeFilter}
+                    onChange={(e) => setWhitelistCodeFilter(e.target.value)}
+                    style={{
+                      padding: '0.7rem 1rem',
+                      borderRadius: '8px',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      color: '#fff',
+                      fontSize: '0.9rem',
+                      outline: 'none',
+                      minWidth: '120px'
+                    }}
+                  >
+                    <option value="ALL" style={{ background: '#0f172a' }}>All Codes</option>
+                    {(() => {
+                      let codes = [];
+                      if (Array.isArray(selectedTSPForManage?.accessCodes) && selectedTSPForManage.accessCodes.length > 0) {
+                        codes = selectedTSPForManage.accessCodes;
+                      } else if (selectedTSPForManage?.passcode) {
+                        codes = [{ code: selectedTSPForManage.passcode, label: 'Default Code' }];
+                      }
+                      return codes.map((c, idx) => (
+                        <option key={idx} value={c.code} style={{ background: '#0f172a' }}>{c.code}</option>
+                      ));
+                    })()}
+                  </select>
+
                   <button
                     type="button"
                     onClick={() => setWhitelistManualOpen(true)}
@@ -3072,10 +3216,49 @@ export default function TSPManager() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.4rem',
-                      fontSize: '0.85rem'
+                      fontSize: '0.85rem',
+                      whiteSpace: 'nowrap'
                     }}
                   >
                     <Plus size={16} /> Add Student
+                  </button>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allStudents = selectedTSPForManage.whitelistedStudents || [];
+                      const query = whitelistSearchQuery.trim().toLowerCase();
+                      const wFilter = whitelistCodeFilter !== 'ALL' ? whitelistCodeFilter : null;
+                      const filtered = allStudents.filter(s => {
+                        const matchQuery = query ? ((s.rollNo || s.identifier || '').toLowerCase().includes(query) || (s.name || '').toLowerCase().includes(query) || (s.registerNo || '').toLowerCase().includes(query) || (s.email || '').toLowerCase().includes(query)) : true;
+                        const matchCode = wFilter ? ((s.assignedCode || '').trim().toUpperCase() === wFilter) : true;
+                        return matchQuery && matchCode;
+                      });
+                      handleExportWhitelistPDF(selectedTSPForManage, filtered);
+                    }}
+                    disabled={generatingPdf}
+                    style={{ padding: '0.55rem 1rem', background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                  >
+                    {generatingPdf ? <Loader2 size={14} className={styles.spin} /> : <FileText size={14} />} PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allStudents = selectedTSPForManage.whitelistedStudents || [];
+                      const query = whitelistSearchQuery.trim().toLowerCase();
+                      const wFilter = whitelistCodeFilter !== 'ALL' ? whitelistCodeFilter : null;
+                      const filtered = allStudents.filter(s => {
+                        const matchQuery = query ? ((s.rollNo || s.identifier || '').toLowerCase().includes(query) || (s.name || '').toLowerCase().includes(query) || (s.registerNo || '').toLowerCase().includes(query) || (s.email || '').toLowerCase().includes(query)) : true;
+                        const matchCode = wFilter ? ((s.assignedCode || '').trim().toUpperCase() === wFilter) : true;
+                        return matchQuery && matchCode;
+                      });
+                      handleExportWhitelistExcel(selectedTSPForManage, filtered);
+                    }}
+                    style={{ padding: '0.55rem 1rem', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid #10b981', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                  >
+                    <DownloadCloud size={14} /> Excel
                   </button>
                 </div>
 
@@ -3083,17 +3266,12 @@ export default function TSPManager() {
                 {(() => {
                   const allStudents = selectedTSPForManage.whitelistedStudents || [];
                   const query = whitelistSearchQuery.trim().toLowerCase();
-                  const filtered = query
-                    ? allStudents.filter(s =>
-                        (s && s.rollNo && s.rollNo.toLowerCase().includes(query)) ||
-                        (s && s.identifier && s.identifier.toLowerCase().includes(query)) ||
-                        (s && s.name && s.name.toLowerCase().includes(query)) ||
-                        (s && s.registerNo && s.registerNo.toLowerCase().includes(query)) ||
-                        (s && s.email && s.email.toLowerCase().includes(query))
-                      )
-                    : allStudents;
-
-                  if (allStudents.length === 0) {
+                  const wFilter = whitelistCodeFilter !== 'ALL' ? whitelistCodeFilter : null;
+                      const filtered = allStudents.filter(s => {
+                        const matchQuery = query ? ((s.rollNo || s.identifier || '').toLowerCase().includes(query) || (s.name || '').toLowerCase().includes(query) || (s.registerNo || '').toLowerCase().includes(query) || (s.email || '').toLowerCase().includes(query)) : true;
+                        const matchCode = wFilter ? ((s.assignedCode || '').trim().toUpperCase() === wFilter) : true;
+                        return matchQuery && matchCode;
+                      });if (allStudents.length === 0) {
                     return (
                       <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: '#94a3b8' }}>
                         <Users size={40} color="#64748b" style={{ margin: '0 auto 0.75rem auto', display: 'block', opacity: 0.6 }} />
@@ -3123,6 +3301,7 @@ export default function TSPManager() {
                             <th style={{ padding: '0.75rem 0.75rem', color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase' }}>Name</th>
                             <th style={{ padding: '0.75rem 0.75rem', color: '#a78bfa', fontSize: '0.75rem', textTransform: 'uppercase' }}>Register No</th>
                             <th style={{ padding: '0.75rem 0.75rem', color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase' }}>Mail ID</th>
+                              <th style={{ padding: '0.75rem 0.75rem', color: '#f59e0b', fontSize: '0.75rem', textTransform: 'uppercase' }}>Assigned Code</th>
                             <th style={{ padding: '0.75rem 0.85rem', color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase', textAlign: 'right', width: '60px' }}>Action</th>
                           </tr>
                         </thead>
@@ -3151,6 +3330,15 @@ export default function TSPManager() {
                                 )}
                               </td>
                               <td style={{ padding: '0.65rem 0.75rem', color: '#94a3b8', fontSize: '0.82rem' }}>{stu.email || '—'}</td>
+                                <td style={{ padding: '0.65rem 0.75rem' }}>
+                                  {stu.assignedCode ? (
+                                    <span style={{ fontFamily: 'monospace', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', padding: '0.2rem 0.5rem', borderRadius: '6px', border: '1px solid rgba(245, 158, 11, 0.2)', fontSize: '0.82rem', fontWeight: 700 }}>
+                                      {stu.assignedCode}
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: '#64748b', fontSize: '0.82rem' }}>ANY</span>
+                                  )}
+                                </td>
                               <td style={{ padding: '0.65rem 0.85rem', textAlign: 'right' }}>
                                 <button
                                   type="button"
@@ -3177,16 +3365,12 @@ export default function TSPManager() {
                   {(() => {
                     const allStudents = selectedTSPForManage.whitelistedStudents || [];
                     const query = whitelistSearchQuery.trim().toLowerCase();
-                    const filtered = query
-                      ? allStudents.filter(s =>
-                          (s && s.rollNo && s.rollNo.toLowerCase().includes(query)) ||
-                          (s && s.identifier && s.identifier.toLowerCase().includes(query)) ||
-                          (s && s.name && s.name.toLowerCase().includes(query)) ||
-                          (s && s.registerNo && s.registerNo.toLowerCase().includes(query)) ||
-                          (s && s.email && s.email.toLowerCase().includes(query))
-                        )
-                      : allStudents;
-                    return `Showing ${filtered.length} of ${allStudents.length} student${allStudents.length === 1 ? '' : 's'}`;
+                    const wFilter = whitelistCodeFilter !== 'ALL' ? whitelistCodeFilter : null;
+                      const filtered = allStudents.filter(s => {
+                        const matchQuery = query ? ((s.rollNo || s.identifier || '').toLowerCase().includes(query) || (s.name || '').toLowerCase().includes(query) || (s.registerNo || '').toLowerCase().includes(query) || (s.email || '').toLowerCase().includes(query)) : true;
+                        const matchCode = wFilter ? ((s.assignedCode || '').trim().toUpperCase() === wFilter) : true;
+                        return matchQuery && matchCode;
+                      });return `Showing ${filtered.length} of ${allStudents.length} student${allStudents.length === 1 ? '' : 's'}`;
                   })()}
                 </span>
                 <button
@@ -4109,3 +4293,13 @@ export default function TSPManager() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+

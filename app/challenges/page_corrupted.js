@@ -34,6 +34,9 @@ export default function ChallengesPage() {
   const [selectedLang, setSelectedLang] = useState('python'); // 'python' | 'java' | 'javascript'
   const [compilerOutput, setCompilerOutput] = useState(null);
   const [compiling, setCompiling] = useState(false);
+  const [resetConfirm, setResetConfirm] = useState(false);
+  const [partialSubmitConfirm, setPartialSubmitConfirm] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [activeTestCaseIdx, setActiveTestCaseIdx] = useState(0);
   const pyodideRef = useRef(null);
   const compilerBoxRef = useRef(null);
@@ -50,7 +53,6 @@ export default function ChallengesPage() {
 
   // Proctoring & Single-Submission tracking state
   const [solvedChallengeIds, setSolvedChallengeIds] = useState([]);
-  const [contestSolvedChallengeIds, setContestSolvedChallengeIds] = useState([]);
   const [contestOnboardingStep, setContestOnboardingStep] = useState(null); // null | 'verify' | 'details' | 'rules'
   const [selectedContestForOnboarding, setSelectedContestForOnboarding] = useState(null);
   const [inContestArena, setInContestArena] = useState(false);
@@ -145,11 +147,10 @@ export default function ChallengesPage() {
   }, [showAntiCheatModal]);
 
   useEffect(() => {
-    if (activeChallenge && (activeChallenge.type === 'code' || activeChallenge.type === 'tsp') && codeSubmission) {
-      const uid = verifiedMember?.memberId || 'anon';
-        localStorage.setItem(`dsc_draft_${uid}_${activeChallenge._id}_${selectedLang}`, codeSubmission);
+    if (activeChallenge && (activeChallenge.type === 'code' || activeChallenge.type === 'tsp') && codeSubmission && verifiedMember?.memberId) {
+      localStorage.setItem(`dsc_draft_${verifiedMember.memberId}_${activeChallenge._id}_${selectedLang}`, codeSubmission);
     }
-  }, [codeSubmission, activeChallenge, selectedLang]);
+  }, [codeSubmission, activeChallenge, selectedLang, verifiedMember]);
 
   const isMemberRestricted = (contest, mId) => {
     if (!contest || !mId) return false;
@@ -465,7 +466,7 @@ export default function ChallengesPage() {
   // Keep evictionHandlerRef always pointing to the latest closure (fixes stale-closure bug in setTimeout calls)
   evictionHandlerRef.current = handleEvictMemberFromContest;
 
-  // Sends a violation to the server. The server tracks count and auto-restricts at 10.
+  // Sends a violation to the server. The server tracks count and auto-restricts at 3.
   // Returns { violationCount, restricted } from the DB.
   const recordViolationOnServer = async (contestId, memberId) => {
     try {
@@ -499,7 +500,7 @@ export default function ChallengesPage() {
       const mId = (member.memberId || member._id || '').toString();
       if (!cId || !mId) return;
 
-      // Record violation in DB immediately (server auto-restricts at 10)
+      // Record violation in DB immediately (server auto-restricts at 3)
       recordViolationOnServer(cId, mId).then((result) => {
         const count = (result && typeof result.violationCount === 'number')
           ? result.violationCount
@@ -549,7 +550,7 @@ export default function ChallengesPage() {
       const mId = (member.memberId || member._id || '').toString();
       if (!cId || !mId) return;
 
-      // Record violation in DB immediately (server auto-restricts at 10)
+      // Record violation in DB immediately (server auto-restricts at 3)
       recordViolationOnServer(cId, mId).then((result) => {
         const count = (result && typeof result.violationCount === 'number')
           ? result.violationCount
@@ -665,15 +666,15 @@ export default function ChallengesPage() {
       });
       const data = await res.json();
       
-        let isAllowed = false;
-        let finalMember = null;
-        
-        if (res.ok) {
-          // Global member exists
-          isAllowed = true;
-          finalMember = data.member;
-        }
-        
+      let isAllowed = false;
+      let finalMember = null;
+      
+      if (res.ok) {
+        // Global member exists
+        isAllowed = true;
+        finalMember = data.member;
+      } else {
+        // Not a global member, check whitelist if enabled
         if (targetContest && targetContest.whitelistEnabled) {
           const typedId = memberIdInput.trim().toLowerCase();
           const match = targetContest.whitelistedStudents?.find(s => 
@@ -683,19 +684,11 @@ export default function ChallengesPage() {
           );
           if (match) {
             isAllowed = true;
-            // Standardize memberId to rollNo (canonical ID) so alternate aliases don't spawn duplicate sessions
-            finalMember = {
-              ...(finalMember || {}),
-              memberId: match.rollNo || match.identifier || typedId,
-              name: match.name || finalMember?.name,
-              role: finalMember?.role || 'Whitelisted Student'
-            };
-          } else {
-            isAllowed = false;
-            finalMember = null;
+            finalMember = { memberId: match.rollNo || match.identifier, name: match.name, role: 'Whitelisted Student' };
           }
         }
-        
+      }
+      
       if (isAllowed) {
         setVerifiedMember(finalMember);
         sessionStorage.setItem('dsc_verified_member', JSON.stringify(finalMember));
@@ -767,8 +760,7 @@ export default function ChallengesPage() {
     setCompilerOutput(null);
     setActiveTestCaseIdx(0);
     if (challenge.type === 'code' || challenge.type === 'tsp') {
-      const uid = verifiedMember?.memberId || 'anon';
-        const savedDraft = localStorage.getItem(`dsc_draft_${uid}_${challenge._id}_${selectedLang}`);
+      const savedDraft = verifiedMember?.memberId ? localStorage.getItem(`dsc_draft_${verifiedMember.memberId}_${challenge._id}_${selectedLang}`) : null;
       setCodeSubmission(savedDraft || starterCodes[selectedLang](challenge.title));
     } else if (challenge.type === 'quiz') {
       setQuizAnswers(new Array(challenge.quizQuestions?.length || 0).fill(null));
@@ -779,8 +771,7 @@ export default function ChallengesPage() {
   const handleLangChange = (lang) => {
     setSelectedLang(lang);
     if (activeChallenge && (activeChallenge.type === 'code' || activeChallenge.type === 'tsp')) {
-      const uid = verifiedMember?.memberId || 'anon';
-        const savedDraft = localStorage.getItem(`dsc_draft_${uid}_${activeChallenge._id}_${lang}`);
+      const savedDraft = verifiedMember?.memberId ? localStorage.getItem(`dsc_draft_${verifiedMember.memberId}_${activeChallenge._id}_${lang}`) : null;
       setCodeSubmission(savedDraft || starterCodes[lang](activeChallenge.title));
       setCompilerOutput(null);
       setActiveTestCaseIdx(0);
@@ -826,8 +817,8 @@ export default function ChallengesPage() {
             
             const actualOutput = capturedStdout.join('\n').trim() || '(No output printed)';
             const expected = (tc.expectedOutput || '').trim();
-            const normActual = actualOutput.toLowerCase().replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
-            const normExpected = expected.toLowerCase().replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
+            const normActual = actualOutput.replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
+            const normExpected = expected.replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
             const isMatch = (actualOutput === expected) || (normExpected.length > 0 && (normActual === normExpected || normActual.split('\n').some(line => line.trim() === normExpected)));
 
             if (!isMatch) allPassed = false;
@@ -911,8 +902,8 @@ export default function ChallengesPage() {
           const execTime = ((endTime - startTime) / 1000).toFixed(3);
           const actualOutput = capturedLogs.join('\n').trim() || '(No output printed)';
           const expected = (tc.expectedOutput || '').trim();
-          const normActual = actualOutput.toLowerCase().replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
-          const normExpected = expected.toLowerCase().replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
+          const normActual = actualOutput.replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
+          const normExpected = expected.replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
           const isMatch = (actualOutput === expected) || (normExpected.length > 0 && (normActual === normExpected || normActual.split('\n').some(line => line.trim() === normExpected)));
 
           if (!isMatch) allPassed = false;
@@ -957,46 +948,23 @@ export default function ChallengesPage() {
       return { allPassed, testResults, summaryText };
     }
 
-    // Default fallback (e.g. Java simulation / offline mode)
-    await new Promise(r => setTimeout(r, 600));
-    const compilerVer = selectedLang === 'java' ? 'OpenJDK 17.0.8 (Sandboxed)' : 'Compiler Engine';
-    let allPassed = true;
-    const testResults = testCases.map((tc, idx) => {
-      const time = (0.012 + idx * 0.005).toFixed(3);
-      const expected = (tc.expectedOutput || '').trim();
-      const isStarter = codeSubmission.includes('System.out.println("Output result")') || codeSubmission.trim() === (starterCodes[selectedLang]?.(activeChallenge?.title) || '').trim();
-      const isMatch = !isStarter && (codeSubmission.includes(expected) || codeSubmission.includes("print(" + expected) || codeSubmission.includes("println(" + expected));
-      if (!isMatch) allPassed = false;
-      const actualOut = isMatch ? expected : (isStarter ? 'Output result' : 'Incorrect output');
+        if (selectedLang == "java") {
       return {
-        id: idx,
-        name: `${tc.isHidden ? '🔒 Hidden Case' : 'Sample Test case'} ${idx}`,
-        passed: isMatch,
-        input: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.input || 'None'),
-        expected: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.expectedOutput || 'None'),
-        output: tc.isHidden && !isMatch ? 'Hidden (Wrong Answer)' : actualOut,
-        time: time,
-        error: null
+        allPassed: false,
+        testResults: [{
+          id: 0,
+          name: "Java Not Supported",
+          passed: false,
+          input: "N/A",
+          expected: "N/A",
+          output: "Java execution requires a backend server and is currently unsupported in this browser-only environment.",
+          time: "0.000",
+          error: "Java execution unsupported on client-side."
+        }],
+        summaryText: "[Java Execution Error]: Java is not supported in client-side sandboxes. Please switch to Python or JavaScript."
       };
-    });
-
-    const resultsText = testCases.map((tc, idx) => {
-      const time = (0.012 + idx * 0.005).toFixed(3);
-      const res = testResults[idx];
-      return `▶ Test Case #${idx + 1} (${tc.isHidden ? 'Hidden Case' : 'Visible Case'}): ${res.passed ? 'PASSED ✔' : 'FAILED ✘'} (${time}s)\n` +
-             `  Input:    ${tc.isHidden ? '[Hidden]' : (tc.input || 'None')}\n` +
-             `  Expected: ${tc.isHidden ? '[Hidden]' : (tc.expectedOutput || 'None')}\n` +
-             `  Output:   ${res.output}\n`;
-    }).join('\n');
-
-    const fakeOutput = `[${compilerVer}]: Build & compilation complete.\n` +
-      `==================================================\n` +
-      `Running Automated Test Suite...\n\n` +
-      resultsText +
-      `==================================================\n` +
-      (allPassed ? `✅ ALL TEST CASES PASSED!` : `⚠️ SOME TEST CASES FAILED OR THREW ERRORS.`);
-
-    return { allPassed, testResults, summaryText: fakeOutput };
+    }
+    return { allPassed: false, testResults: [], summaryText: "Language unsupported" };
   };
 
   const handleCompileAndRun = async () => {
@@ -1102,9 +1070,6 @@ export default function ChallengesPage() {
 
       setSubmissionResult(data);
       if (activeChallenge && activeChallenge._id) {
-        if (inContestArenaRef.current) {
-          setContestSolvedChallengeIds(prev => Array.from(new Set([...prev, activeChallenge._id])));
-        }
         setSolvedChallengeIds(prev => {
           const updated = Array.from(new Set([...prev, activeChallenge._id]));
           sessionStorage.setItem('dsc_solved_challenges', JSON.stringify(updated));
@@ -1120,10 +1085,6 @@ export default function ChallengesPage() {
 
   const handleSubmitAcceptedCases = async (passedCount, totalCount) => {
     if (!verifiedMember || !activeChallenge) return;
-    if (!confirm(`Are you sure you want to submit your solution with only the ${passedCount} accepted test case(s) out of ${totalCount}?`)) {
-      return;
-    }
-
     setSubmitting(true);
     setSubmissionResult(null);
 
@@ -1150,9 +1111,6 @@ export default function ChallengesPage() {
 
       setSubmissionResult(data);
       if (activeChallenge && activeChallenge._id) {
-        if (inContestArenaRef.current) {
-          setContestSolvedChallengeIds(prev => Array.from(new Set([...prev, activeChallenge._id])));
-        }
         setSolvedChallengeIds(prev => {
           const updated = Array.from(new Set([...prev, activeChallenge._id]));
           sessionStorage.setItem('dsc_solved_challenges', JSON.stringify(updated));
@@ -1424,13 +1382,21 @@ export default function ChallengesPage() {
               </button>
 
               <button
-                onClick={() => handleExitArena(false)}
+                onClick={() => {
+                  if (!showExitConfirm) {
+                    setShowExitConfirm(true);
+                    setTimeout(() => setShowExitConfirm(false), 3000);
+                  } else {
+                    handleExitArena(false);
+                    setShowExitConfirm(false);
+                  }
+                }}
                 className={styles.startBtn}
-                style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444', color: '#ef4444', cursor: 'pointer', borderRadius: '0.75rem', padding: '0.6rem 1.25rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700 }}
+                style={{ background: 'rgba(239, 68, 68, 0.2)', border: showExitConfirm ? '2px solid #ef4444' : '1px solid #ef4444', color: '#ef4444', cursor: 'pointer', borderRadius: '0.75rem', padding: '0.6rem 1.25rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontWeight: showExitConfirm ? 900 : 700 }}
                 title="Finish test and permanently exit the arena"
               >
                 <X size={16} />
-                <span>Exit Arena</span>
+                <span>{showExitConfirm ? 'Confirm Exit!' : 'Exit Arena'}</span>
               </button>
             </div>
           </div>
@@ -1747,7 +1713,7 @@ export default function ChallengesPage() {
                   <span className={`${styles.difficultyBadge} ${styles[challenge.difficulty?.toLowerCase() || 'medium']}`}>
                     {challenge.difficulty || 'Medium'}
                   </span>
-                  {(inContestArena ? contestSolvedChallengeIds : solvedChallengeIds).includes(challenge._id) && (
+                  {solvedChallengeIds.includes(challenge._id) && (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid #10b981', padding: '0.2rem 0.5rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold' }}>
                       <CheckCircle2 size={12} /> Solved
                     </span>
@@ -1773,9 +1739,9 @@ export default function ChallengesPage() {
                       }
                     }}
                     className={styles.startBtn}
-                    style={{ background: (inContestArena ? contestSolvedChallengeIds : solvedChallengeIds).includes(challenge._id) ? 'rgba(16, 185, 129, 0.2)' : undefined, border: (inContestArena ? contestSolvedChallengeIds : solvedChallengeIds).includes(challenge._id) ? '1px solid #10b981' : undefined }}
+                    style={{ background: solvedChallengeIds.includes(challenge._id) ? 'rgba(16, 185, 129, 0.2)' : undefined, border: solvedChallengeIds.includes(challenge._id) ? '1px solid #10b981' : undefined }}
                   >
-                    <span>{(inContestArena ? contestSolvedChallengeIds : solvedChallengeIds).includes(challenge._id) ? 'Review Solution' : 'Participate'}</span>
+                    <span>{solvedChallengeIds.includes(challenge._id) ? 'Review Solution' : 'Participate'}</span>
                     <ArrowRight size={16} />
                   </button>
                 </div>
@@ -1845,7 +1811,7 @@ export default function ChallengesPage() {
 
               {/* Workspace Content */}
               <div className={styles.workspaceBody}>
-                {(inContestArena ? contestSolvedChallengeIds : solvedChallengeIds).includes(activeChallenge._id) && !submissionResult && (
+                {solvedChallengeIds.includes(activeChallenge._id) && !submissionResult && (
                   <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', borderRadius: '12px', padding: '1rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#34d399' }}>
                     <CheckCircle2 size={24} />
                     <div>
@@ -2008,15 +1974,19 @@ export default function ChallengesPage() {
                           </div>
                           <button
                             onClick={() => {
-                              if (confirm('Reset editor to starter template?')) {
+                              if (!resetConfirm) {
+                                setResetConfirm(true);
+                                setTimeout(() => setResetConfirm(false), 3000);
+                              } else {
                                 setCodeSubmission(starterCodes[selectedLang](activeChallenge.title));
+                                setResetConfirm(false);
                               }
                             }}
-                            style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                            style={{ background: 'transparent', border: 'none', color: resetConfirm ? '#ef4444' : '#64748b', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: resetConfirm ? 'bold' : 'normal' }}
                             title="Reset Code"
                           >
                             <RefreshCw size={12} />
-                            <span>Reset</span>
+                            <span>{resetConfirm ? 'Sure?' : 'Reset'}</span>
                           </button>
                         </div>
                       </div>
@@ -2065,32 +2035,15 @@ export default function ChallengesPage() {
                             {compiling ? <RefreshCw size={15} className={styles.spinner} /> : <Play size={15} />}
                             {compiling ? 'Running Code...' : 'Run Code'}
                           </button>
-                          {compilerOutput?.canSubmitPartial && !(inContestArena ? contestSolvedChallengeIds : solvedChallengeIds).includes(activeChallenge._id) && (
-                            <button
-                              onClick={() => handleSubmitAcceptedCases(compilerOutput.passedCount, compilerOutput.totalCount)}
-                              disabled={submitting}
-                              className={styles.submitBtn}
-                              style={{
-                                background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)',
-                                color: '#0f172a',
-                                fontWeight: 700,
-                                border: 'none',
-                                boxShadow: '0 2px 10px rgba(234, 179, 8, 0.35)'
-                              }}
-                              title={`Submit with ${compilerOutput.passedCount} accepted test case(s)`}
-                            >
-                              <CheckCircle2 size={16} color="#0f172a" />
-                              {submitting ? 'Submitting...' : `Submit Accepted (${compilerOutput.passedCount}/${compilerOutput.totalCount})`}
-                            </button>
-                          )}
+
                           <button
                             onClick={handleSubmitChallenge}
-                            disabled={submitting || (inContestArena ? contestSolvedChallengeIds : solvedChallengeIds).includes(activeChallenge._id)}
+                            disabled={submitting || solvedChallengeIds.includes(activeChallenge._id)}
                             className={styles.submitBtn}
-                            style={{ opacity: (inContestArena ? contestSolvedChallengeIds : solvedChallengeIds).includes(activeChallenge._id) ? 0.5 : 1, cursor: (inContestArena ? contestSolvedChallengeIds : solvedChallengeIds).includes(activeChallenge._id) ? 'not-allowed' : 'pointer' }}
+                            style={{ opacity: solvedChallengeIds.includes(activeChallenge._id) ? 0.5 : 1, cursor: solvedChallengeIds.includes(activeChallenge._id) ? 'not-allowed' : 'pointer' }}
                           >
                             <CheckCircle2 size={16} />
-                            {submitting ? 'Submitting...' : (inContestArena ? contestSolvedChallengeIds : solvedChallengeIds).includes(activeChallenge._id) ? 'Already Submitted' : 'Submit Code'}
+                            {submitting ? 'Submitting...' : solvedChallengeIds.includes(activeChallenge._id) ? 'Already Submitted' : 'Submit Code'}
                           </button>
                         </div>
                       </div>
@@ -2136,7 +2089,7 @@ export default function ChallengesPage() {
                                 </div>
                               </div>
 
-                              {compilerOutput.canSubmitPartial && !(inContestArena ? contestSolvedChallengeIds : solvedChallengeIds).includes(activeChallenge._id) && (
+                              {compilerOutput.canSubmitPartial && !solvedChallengeIds.includes(activeChallenge._id) && (
                                 <div style={{
                                   background: 'linear-gradient(135deg, rgba(234, 179, 8, 0.12) 0%, rgba(245, 158, 11, 0.06) 100%)',
                                   border: '1px solid rgba(234, 179, 8, 0.35)',
@@ -2175,7 +2128,15 @@ export default function ChallengesPage() {
                                     </div>
                                   </div>
                                   <button
-                                    onClick={() => handleSubmitAcceptedCases(compilerOutput.passedCount, compilerOutput.totalCount)}
+                                    onClick={() => {
+                                      if (!partialSubmitConfirm) {
+                                        setPartialSubmitConfirm(true);
+                                        setTimeout(() => setPartialSubmitConfirm(false), 3000);
+                                      } else {
+                                        handleSubmitAcceptedCases(compilerOutput.passedCount, compilerOutput.totalCount);
+                                        setPartialSubmitConfirm(false);
+                                      }
+                                    }}
                                     disabled={submitting}
                                     style={{
                                       background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)',
@@ -2184,7 +2145,7 @@ export default function ChallengesPage() {
                                       fontSize: '0.85rem',
                                       padding: '0.55rem 1.1rem',
                                       borderRadius: '8px',
-                                      border: 'none',
+                                      border: partialSubmitConfirm ? '2px solid #ef4444' : 'none',
                                       cursor: submitting ? 'not-allowed' : 'pointer',
                                       display: 'flex',
                                       alignItems: 'center',
@@ -2195,7 +2156,7 @@ export default function ChallengesPage() {
                                     }}
                                   >
                                     <CheckCircle2 size={16} color="#0f172a" />
-                                    {submitting ? 'Submitting...' : `Submit with Only Accepted Test Cases (${compilerOutput.passedCount}/${compilerOutput.totalCount})`}
+                                    {submitting ? 'Submitting...' : (partialSubmitConfirm ? 'Sure? Click again' : `Submit with Only Accepted Test Cases (${compilerOutput.passedCount}/${compilerOutput.totalCount})`)}
                                   </button>
                                 </div>
                               )}
@@ -2310,11 +2271,11 @@ export default function ChallengesPage() {
                           ) : (
                             <button
                               onClick={handleSubmitChallenge}
-                              disabled={submitting || quizAnswers.includes(null) || (inContestArena ? contestSolvedChallengeIds : solvedChallengeIds).includes(activeChallenge._id)}
+                              disabled={submitting || quizAnswers.includes(null) || solvedChallengeIds.includes(activeChallenge._id)}
                               className={styles.submitBtn}
-                              style={{ opacity: (inContestArena ? contestSolvedChallengeIds : solvedChallengeIds).includes(activeChallenge._id) ? 0.5 : 1, cursor: (inContestArena ? contestSolvedChallengeIds : solvedChallengeIds).includes(activeChallenge._id) ? 'not-allowed' : 'pointer' }}
+                              style={{ opacity: solvedChallengeIds.includes(activeChallenge._id) ? 0.5 : 1, cursor: solvedChallengeIds.includes(activeChallenge._id) ? 'not-allowed' : 'pointer' }}
                             >
-                              {submitting ? 'Submitting...' : (inContestArena ? contestSolvedChallengeIds : solvedChallengeIds).includes(activeChallenge._id) ? 'Already Submitted' : 'Submit Quiz'}
+                              {submitting ? 'Submitting...' : solvedChallengeIds.includes(activeChallenge._id) ? 'Already Submitted' : 'Submit Quiz'}
                             </button>
                           )}
                         </div>
@@ -2535,25 +2496,18 @@ export default function ChallengesPage() {
                             }
                             if (selectedContestForOnboarding && selectedContestForOnboarding.whitelistEnabled) {
                               const cleanId = verifiedMember.memberId.toString().trim().toLowerCase();
-                                const matchedStudent = selectedContestForOnboarding.whitelistedStudents?.find(s => 
-                                  s && (
-                                    (s.identifier && s.identifier.toString().trim().toLowerCase() === cleanId) ||
-                                    (s.rollNo && s.rollNo.toString().trim().toLowerCase() === cleanId) ||
-                                    (s.registerNo && s.registerNo.toString().trim().toLowerCase() === cleanId)
-                                  )
-                                );
-                                if (!matchedStudent) {
-                                  alert(`\u26A0\uFE0F Member ID "${verifiedMember.memberId}" is NOT on the authorized participant whitelist for this ${selectedContestForOnboarding.isTSP ? 'TSP' : 'contest'}. Please click "Switch ID" and enter an authorized Roll Number or Member ID.`);
-                                  return;
-                                }
-                                if (selectedContestForOnboarding.isTSP && selectedContestForOnboarding.passcodeEnabled && matchedStudent.assignedCode && matchedStudent.assignedCode.trim() !== '') {
-                                  const norm = (str) => String(str || '').replace(/\s+/g, '').toUpperCase();
-                                  if (norm((tspPasscodeInput || '').trim()) !== norm(matchedStudent.assignedCode)) {
-                                    alert('\u26D4 Invalid Access Code. Please enter the specific TSP Test Access Code assigned to your Roll Number.');
-                                    return;
-                                  }
-                                }
+                              const isWhitelisted = selectedContestForOnboarding.whitelistedStudents?.some(s => 
+                                s && (
+                                  (s.identifier && s.identifier.toString().trim().toLowerCase() === cleanId) ||
+                                  (s.rollNo && s.rollNo.toString().trim().toLowerCase() === cleanId) ||
+                                  (s.registerNo && s.registerNo.toString().trim().toLowerCase() === cleanId)
+                                )
+                              );
+                              if (!isWhitelisted) {
+                                alert(`⛔ Member ID "${verifiedMember.memberId}" is NOT on the authorized participant whitelist for this ${selectedContestForOnboarding.isTSP ? 'TSP' : 'contest'}. Please click "Switch ID" and enter an authorized Roll Number or Member ID.`);
+                                return;
                               }
+                            }
                             setContestOnboardingStep('details');
                           }}
                           className={styles.startBtn}
@@ -2565,7 +2519,12 @@ export default function ChallengesPage() {
                         <button
                           onClick={() => {
                             sessionStorage.removeItem('dsc_verified_member');
+                            sessionStorage.removeItem('dsc_solved_challenges');
                             setVerifiedMember(null);
+                            setSolvedChallengeIds([]);
+                            setSubmissionResult(null);
+                            setCompilerOutput(null);
+                            setActiveTestCaseIdx(0);
                           }}
                           style={{ background: 'transparent', border: '1px solid #475569', color: '#cbd5e1', padding: '0.75rem 1rem', borderRadius: '10px', cursor: 'pointer', fontSize: '0.85rem' }}
                         >
@@ -2610,7 +2569,7 @@ export default function ChallengesPage() {
                       const typedId = memberIdInput.trim();
                       if (!typedId) return;
                       if (selectedContestForOnboarding && isMemberRestricted(selectedContestForOnboarding, typedId)) {
-                        alert(`⛔ Member ID "${typedId}" is RESTRICTED from entering this ${selectedContestForOnboarding.isTSP ? 'TSP' : 'contest'} arena due to exceeding anti-cheat violations (10/10). Please contact an Administrator to lift your restriction.`);
+                        alert(`⛔ Member ID "${typedId}" is RESTRICTED from entering this ${selectedContestForOnboarding.isTSP ? 'TSP' : 'contest'} arena due to exceeding anti-cheat violations (3/3). Please contact an Administrator to lift your restriction.`);
                         return;
                       }
                       await handleVerifyMember(e);
@@ -2630,27 +2589,10 @@ export default function ChallengesPage() {
                               return;
                             }
                           }
-                            if (selectedContestForOnboarding && isMemberRestricted(selectedContestForOnboarding, parsed.memberId)) {
-                              alert(`\u26A0\uFE0F Member ID "${parsed.memberId}" is RESTRICTED from entering this ${selectedContestForOnboarding.isTSP ? 'TSP' : 'contest'} arena due to exceeding anti-cheat violations. Please contact an Administrator to lift your restriction.`);
-                              return;
-                            }
-                            if (selectedContestForOnboarding?.isTSP && selectedContestForOnboarding?.passcodeEnabled && selectedContestForOnboarding?.whitelistEnabled) {
-                               const cleanId = parsed.memberId.toString().trim().toLowerCase();
-                               const matchedStudent = selectedContestForOnboarding.whitelistedStudents?.find(s => 
-                                  s && (
-                                    (s.identifier && s.identifier.toString().trim().toLowerCase() === cleanId) ||
-                                    (s.rollNo && s.rollNo.toString().trim().toLowerCase() === cleanId) ||
-                                    (s.registerNo && s.registerNo.toString().trim().toLowerCase() === cleanId)
-                                  )
-                               );
-                               if (matchedStudent && matchedStudent.assignedCode && matchedStudent.assignedCode.trim() !== '') {
-                                  const norm = (str) => String(str || '').replace(/\s+/g, '').toUpperCase();
-                                  if (norm((tspPasscodeInput || '').trim()) !== norm(matchedStudent.assignedCode)) {
-                                    alert('\u26D4 Invalid Access Code. Please enter the specific TSP Test Access Code assigned to your Roll Number.');
-                                    return;
-                                  }
-                               }
-                            }
+                          if (selectedContestForOnboarding && isMemberRestricted(selectedContestForOnboarding, parsed.memberId)) {
+                            alert(`⛔ Member ID "${parsed.memberId}" is RESTRICTED from entering this ${selectedContestForOnboarding.isTSP ? 'TSP' : 'contest'} arena due to exceeding anti-cheat violations. Please contact an Administrator to lift your restriction.`);
+                            return;
+                          }
                         } catch (err) {}
                         setContestOnboardingStep('details');
                       }
@@ -2792,7 +2734,6 @@ export default function ChallengesPage() {
                               inContestArenaRef.current = true;
                               setActiveContest(pseudoContest);
                               setInContestArena(true);
-                              setContestSolvedChallengeIds(data.session.solvedChallenges || []);
                               const existingV = (selectedContestForOnboarding?.violations)?.find(
                                 v => v.memberId && v.memberId.toUpperCase() === (currentMember?.memberId || '').toUpperCase()
                               );
@@ -2846,7 +2787,6 @@ export default function ChallengesPage() {
                         inContestArenaRef.current = true;
                         setActiveContest(selectedContestForOnboarding);
                         setInContestArena(true);
-                        setContestSolvedChallengeIds(joinData.solvedChallengeIds || []);
                         const existingContestV = (selectedContestForOnboarding?.violations)?.find(
                           v => v.memberId && v.memberId.toUpperCase() === (currentMember?.memberId || '').toUpperCase()
                         );
