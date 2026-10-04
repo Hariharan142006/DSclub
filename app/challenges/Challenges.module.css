@@ -709,9 +709,9 @@
 .compilerBox {
   background: #0e141e;
   border-top: 1px solid #1e293b;
-  height: 46%;
-  min-height: 200px;
-  max-height: 60%;
+  height: 48%;
+  min-height: 220px;
+  max-height: 65%;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -1045,12 +1045,12 @@
 .hrResultsContainer {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 0.85rem;
   font-family: system-ui, -apple-system, sans-serif;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 1.25rem;
+  padding: 1rem 1.25rem 2.75rem;
 }
 
 /* Custom Sleek Scrollbar for Challenge Workspace */
@@ -1088,36 +1088,50 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 0.85rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   flex-wrap: wrap;
   gap: 0.75rem;
+  flex-shrink: 0;
 }
 
 .hrVerdictTitleArea {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
-.verdictSuccess {
-  font-size: 1.4rem;
-  font-weight: 800;
+.verdictBadgeSuccess {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: rgba(0, 234, 100, 0.15);
+  border: 1px solid rgba(0, 234, 100, 0.4);
   color: #00ea64;
-  margin: 0;
-  letter-spacing: -0.5px;
+  font-weight: 800;
+  font-size: 0.92rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  letter-spacing: -0.2px;
 }
 
-.verdictError {
-  font-size: 1.4rem;
+.verdictBadgeError {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #f87171;
   font-weight: 800;
-  color: #ef4444;
-  margin: 0;
-  letter-spacing: -0.5px;
+  font-size: 0.92rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  letter-spacing: -0.2px;
 }
 
 .verdictSubtitle {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: #94a3b8;
   font-weight: 500;
 }
@@ -1125,11 +1139,11 @@
 .hrCompilerMsg {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  font-size: 0.85rem;
+  gap: 0.5rem;
+  font-size: 0.8rem;
   background: rgba(255, 255, 255, 0.05);
-  padding: 0.4rem 0.85rem;
-  border-radius: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -1150,37 +1164,39 @@
 
 .hrTestTabs {
   display: flex;
-  gap: 0.6rem;
+  gap: 0.5rem;
   overflow-x: auto;
   padding-bottom: 0.25rem;
+  flex-shrink: 0;
 }
 
 .hrTestTabBtn {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.55rem 1.1rem;
-  border-radius: 0.5rem;
-  font-size: 0.85rem;
-  font-weight: 600;
+  gap: 0.45rem;
+  padding: 0.42rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
   cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid #1e293b;
   background: #0f172a;
-  color: #cbd5e1;
+  color: #94a3b8;
   transition: all 0.2s ease;
   white-space: nowrap;
 }
 
 .hrTestTabBtn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: #1e293b;
+  color: #fff;
+  border-color: #334155;
 }
 
 .hrTestTabActive {
   background: #1e293b;
-  border-color: #60a5fa;
+  border-color: #00ea64;
   color: #fff;
-  box-shadow: 0 0 12px rgba(96, 165, 250, 0.25);
+  box-shadow: 0 0 10px rgba(0, 234, 100, 0.2);
 }
 
 .tabIcon {
@@ -1198,31 +1214,31 @@
 .hrTestCaseDetails {
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
+  gap: 0.75rem;
   background: #080c14;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 0.75rem;
-  padding: 1.25rem;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 0.9rem 1.15rem;
 }
 
 .hrErrorBox {
-  background: rgba(239, 68, 68, 0.12);
+  background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.35);
-  border-radius: 0.5rem;
-  padding: 0.85rem;
+  border-radius: 6px;
+  padding: 0.75rem;
 }
 
 .hrDetailSection {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.3rem;
 }
 
 .hrDetailHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: #94a3b8;
   text-transform: uppercase;
@@ -1232,9 +1248,11 @@
 .hrCopyLink {
   color: #60a5fa;
   cursor: pointer;
-  text-transform: none;
+  background: transparent;
+  border: none;
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  padding: 0;
   transition: color 0.2s;
 }
 
@@ -1245,15 +1263,16 @@
 
 .hrDetailCode {
   background: #0d1322;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 0.5rem;
-  padding: 0.85rem 1rem;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 0.9rem;
+  border: 1px solid #1e293b;
+  border-radius: 6px;
+  padding: 0.6rem 0.85rem;
+  font-family: Consolas, 'Fira Code', 'Courier New', monospace;
+  font-size: 0.85rem;
   color: #e2e8f0;
   margin: 0;
   white-space: pre-wrap;
   word-break: break-all;
+  line-height: 1.5;
 }
 
 .compilingState {

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Code2, HelpCircle, Trophy, ShieldCheck, ShieldAlert, Zap, ArrowRight, CheckCircle2, AlertCircle, RefreshCw, X, Play, Send, Award, Terminal, Cpu, Timer, Lock } from 'lucide-react';
+import { Code2, HelpCircle, Trophy, ShieldCheck, ShieldAlert, Zap, ArrowRight, CheckCircle2, AlertCircle, RefreshCw, X, Play, Send, Award, Terminal, Cpu, Timer, Lock, Copy, Check } from 'lucide-react';
 import styles from './Challenges.module.css';
 import IDCardModal from '@/components/organisms/IDCardModal/IDCardModal';
 import Editor from 'react-simple-code-editor';
@@ -36,8 +36,10 @@ export default function ChallengesPage() {
   const [compilerOutput, setCompilerOutput] = useState(null);
   const [compiling, setCompiling] = useState(false);
   const [activeTestCaseIdx, setActiveTestCaseIdx] = useState(0);
+  const [copiedKey, setCopiedKey] = useState(null);
   const pyodideRef = useRef(null);
   const compilerBoxRef = useRef(null);
+  const problemContentRef = useRef(null);
   const [portalEnabled, setPortalEnabled] = useState(true);
   const [activeTab, setActiveTab] = useState('problem'); // 'problem' | 'submissions' | 'leaderboard' | 'discussions'
 
@@ -73,6 +75,12 @@ export default function ChallengesPage() {
     onCancel: null,
   });
 
+  const ensureFullscreen = () => {
+    if (inContestArenaRef.current && !document.fullscreenElement && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  };
+
   const openConfirmModal = ({
     title,
     message,
@@ -92,10 +100,12 @@ export default function ChallengesPage() {
       type,
       onConfirm: () => {
         setCustomModal(prev => ({ ...prev, isOpen: false }));
+        ensureFullscreen();
         if (onConfirm) onConfirm();
       },
       onCancel: () => {
         setCustomModal(prev => ({ ...prev, isOpen: false }));
+        ensureFullscreen();
         if (onCancel) onCancel();
       }
     });
@@ -118,10 +128,12 @@ export default function ChallengesPage() {
       type,
       onConfirm: () => {
         setCustomModal(prev => ({ ...prev, isOpen: false }));
+        ensureFullscreen();
         if (onConfirm) onConfirm();
       },
       onCancel: () => {
         setCustomModal(prev => ({ ...prev, isOpen: false }));
+        ensureFullscreen();
       }
     });
   };
@@ -325,10 +337,10 @@ export default function ChallengesPage() {
   }, [contestLeaderboardOpen, activeContest]);
 
   useEffect(() => {
-    if (compilerOutput && compilerBoxRef.current) {
-      compilerBoxRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (problemContentRef.current) {
+      problemContentRef.current.scrollTop = 0;
     }
-  }, [compilerOutput, compiling]);
+  }, [activeChallenge?._id]);
 
   const starterCodes = {
     python: (title) => {
@@ -878,6 +890,9 @@ export default function ChallengesPage() {
     setSubmissionResult(null);
     setCompilerOutput(null);
     setActiveTestCaseIdx(0);
+    if (problemContentRef.current) {
+      problemContentRef.current.scrollTop = 0;
+    }
     if (challenge.type === 'code' || challenge.type === 'tsp') {
       const uid = verifiedMember?.memberId || 'anon';
         const savedDraft = localStorage.getItem(`dsc_draft_${uid}_${challenge._id}_${selectedLang}`);
@@ -946,28 +961,28 @@ export default function ChallengesPage() {
 
             testResults.push({
               id: idx,
-              name: `${tc.isHidden ? '🔒 Hidden Case' : 'Sample Test case'} ${idx}`,
+              name: `${tc.isHidden ? '🔒 Hidden Case' : 'Case'} ${idx + 1}`,
               passed: isMatch,
-              input: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.input || 'None'),
-              expected: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.expectedOutput || 'None'),
+              input: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.input || ''),
+              expected: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.expectedOutput || ''),
               output: tc.isHidden && !isMatch ? 'Hidden (Wrong Answer)' : actualOutput,
               time: execTime,
               error: null
             });
 
             resultsText += `▶ Test Case #${idx + 1} (${tc.isHidden ? 'Hidden Case' : 'Visible Case'}): ${isMatch ? 'PASSED ✔' : 'FAILED ✘'} (${execTime}s)\n` +
-                           `  Input:    ${tc.isHidden ? '[Hidden]' : (tc.input || 'None')}\n` +
-                           `  Expected: ${tc.isHidden ? '[Hidden]' : (tc.expectedOutput || 'None')}\n` +
+                           `  Input:    ${tc.isHidden ? '[Hidden]' : (tc.input || '<empty>')}\n` +
+                           `  Expected: ${tc.isHidden ? '[Hidden]' : (tc.expectedOutput || '<empty>')}\n` +
                            `  Your Out: ${tc.isHidden && !isMatch ? '[Hidden]' : actualOutput}\n\n`;
           } catch (pyErr) {
             allPassed = false;
             const errMsg = pyErr.message.split('\n').slice(-3).join('\n');
             testResults.push({
               id: idx,
-              name: `${tc.isHidden ? '🔒 Hidden Case' : 'Sample Test case'} ${idx}`,
+              name: `${tc.isHidden ? '🔒 Hidden Case' : 'Case'} ${idx + 1}`,
               passed: false,
-              input: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.input || 'None'),
-              expected: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.expectedOutput || 'None'),
+              input: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.input || ''),
+              expected: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.expectedOutput || ''),
               output: capturedStdout.join('\n').trim() || '(No output printed)',
               time: '0.000',
               error: errMsg
@@ -990,10 +1005,10 @@ export default function ChallengesPage() {
           allPassed: false,
           testResults: [{
             id: 0,
-            name: 'Sample Test case 0',
+            name: 'Case 1',
             passed: false,
-            input: testCases[0]?.input || 'None',
-            expected: testCases[0]?.expectedOutput || 'None',
+            input: testCases[0]?.input || '',
+            expected: testCases[0]?.expectedOutput || '',
             output: '(No output generated)',
             time: '0.000',
             error: err.message
@@ -1030,26 +1045,26 @@ export default function ChallengesPage() {
           if (!isMatch) allPassed = false;
           testResults.push({
             id: idx,
-            name: `${tc.isHidden ? '🔒 Hidden Case' : 'Sample Test case'} ${idx}`,
+            name: `${tc.isHidden ? '🔒 Hidden Case' : 'Case'} ${idx + 1}`,
             passed: isMatch,
-            input: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.input || 'None'),
-            expected: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.expectedOutput || 'None'),
+            input: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.input || ''),
+            expected: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.expectedOutput || ''),
             output: tc.isHidden && !isMatch ? 'Hidden (Wrong Answer)' : actualOutput,
             time: execTime,
             error: null
           });
           resultsText += `▶ Test Case #${idx + 1} (${tc.isHidden ? 'Hidden Case' : 'Visible Case'}): ${isMatch ? 'PASSED ✔' : 'FAILED ✘'} (${execTime}s)\n` +
-                         `  Input:    ${tc.isHidden ? '[Hidden]' : (tc.input || 'None')}\n` +
-                         `  Expected: ${tc.isHidden ? '[Hidden]' : (tc.expectedOutput || 'None')}\n` +
+                         `  Input:    ${tc.isHidden ? '[Hidden]' : (tc.input || '<empty>')}\n` +
+                         `  Expected: ${tc.isHidden ? '[Hidden]' : (tc.expectedOutput || '<empty>')}\n` +
                          `  Your Out: ${tc.isHidden && !isMatch ? '[Hidden]' : actualOutput}\n\n`;
         } catch (jsErr) {
           allPassed = false;
           testResults.push({
             id: idx,
-            name: `${tc.isHidden ? '🔒 Hidden Case' : 'Sample Test case'} ${idx}`,
+            name: `${tc.isHidden ? '🔒 Hidden Case' : 'Case'} ${idx + 1}`,
             passed: false,
-            input: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.input || 'None'),
-            expected: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.expectedOutput || 'None'),
+            input: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.input || ''),
+            expected: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.expectedOutput || ''),
             output: capturedLogs.join('\n').trim() || '(No output printed)',
             time: '0.000',
             error: jsErr.message
@@ -1082,10 +1097,10 @@ export default function ChallengesPage() {
       const actualOut = isMatch ? expected : (isStarter ? 'Output result' : 'Incorrect output');
       return {
         id: idx,
-        name: `${tc.isHidden ? '🔒 Hidden Case' : 'Sample Test case'} ${idx}`,
+        name: `${tc.isHidden ? '🔒 Hidden Case' : 'Case'} ${idx + 1}`,
         passed: isMatch,
-        input: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.input || 'None'),
-        expected: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.expectedOutput || 'None'),
+        input: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.input || ''),
+        expected: tc.isHidden ? 'Hidden by Challenge Administrator' : (tc.expectedOutput || ''),
         output: tc.isHidden && !isMatch ? 'Hidden (Wrong Answer)' : actualOut,
         time: time,
         error: null
@@ -1118,12 +1133,12 @@ export default function ChallengesPage() {
 
     const testCases = (activeChallenge.codeDetails?.testCases && activeChallenge.codeDetails.testCases.length > 0)
       ? activeChallenge.codeDetails.testCases.filter(tc => !tc.isHidden)
-      : [{ input: activeChallenge.codeDetails?.sampleInput || 'Default Input', expectedOutput: activeChallenge.codeDetails?.sampleOutput || 'Expected Result', isHidden: false }];
+      : [{ input: activeChallenge.codeDetails?.sampleInput || '', expectedOutput: activeChallenge.codeDetails?.sampleOutput || '', isHidden: false }];
 
     setCompilerOutput({
       status: 'compiling',
       title: 'Compiling & Running...',
-      subtitle: `Executing against ${testCases.length} visible test cases in ${selectedLang.toUpperCase()} environment`,
+      subtitle: `Executing against ${testCases.length} visible test cases in ${selectedLang.toUpperCase()}`,
       compilerMessage: 'Initializing Engine...',
       text: `[COMPILER]: Initializing execution sandbox...\n[COMPILER]: Allocating memory & parsing syntax...`
     });
@@ -1134,7 +1149,7 @@ export default function ChallengesPage() {
     setActiveTestCaseIdx(0);
     setCompilerOutput({
       status: allPassed ? 'success' : 'error',
-      title: allPassed ? 'Congratulations! :)' : 'Wrong Answer :(',
+      title: allPassed ? 'Accepted' : 'Wrong Answer',
       subtitle: `${passedCount}/${testCases.length} test cases passed`,
       compilerMessage: allPassed ? 'Success' : 'Wrong Answer',
       testResults: testResults,
@@ -1157,7 +1172,7 @@ export default function ChallengesPage() {
     if (activeChallenge.type === 'code' || activeChallenge.type === 'tsp') {
       const allCases = (activeChallenge.codeDetails?.testCases && activeChallenge.codeDetails.testCases.length > 0)
         ? activeChallenge.codeDetails.testCases
-        : [{ input: activeChallenge.codeDetails?.sampleInput || 'Default Input', expectedOutput: activeChallenge.codeDetails?.sampleOutput || 'Expected Result', isHidden: false }];
+        : [{ input: activeChallenge.codeDetails?.sampleInput || '', expectedOutput: activeChallenge.codeDetails?.sampleOutput || '', isHidden: false }];
       const hiddenCount = allCases.filter(tc => tc.isHidden).length;
       const visibleCount = allCases.length - hiddenCount;
 
@@ -1175,9 +1190,9 @@ export default function ChallengesPage() {
       const passedCount = testResults.filter(r => r.passed).length;
       setCompilerOutput({
         status: allPassed ? 'success' : 'error',
-        title: allPassed ? 'All Test Cases Passed! :)' : 'Wrong Answer on Submission :(',
+        title: allPassed ? 'Accepted' : 'Wrong Answer',
         subtitle: `${passedCount}/${allCases.length} test cases passed (${visibleCount} visible, ${hiddenCount} hidden)`,
-        compilerMessage: allPassed ? 'Accepted ✔' : 'Wrong Answer ✘',
+        compilerMessage: allPassed ? 'Accepted' : 'Wrong Answer',
         testResults: testResults,
         text: summaryText,
         canSubmitPartial: passedCount > 0 && !allPassed,
@@ -1187,6 +1202,7 @@ export default function ChallengesPage() {
 
       if (!allPassed) {
         setSubmitting(false);
+        ensureFullscreen();
         return;
       }
     }
@@ -1231,6 +1247,7 @@ export default function ChallengesPage() {
       });
     } finally {
       setSubmitting(false);
+      ensureFullscreen();
     }
   };
 
@@ -1293,6 +1310,7 @@ export default function ChallengesPage() {
           });
         } finally {
           setSubmitting(false);
+          ensureFullscreen();
         }
       }
     });
@@ -1943,9 +1961,14 @@ export default function ChallengesPage() {
               {/* HackerRank Top Navigation Bar */}
               <div className={styles.workspaceHeader}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '1.25rem' }}>⚡</span>
                     <h2 className={styles.workspaceTitle}>{activeChallenge.title}</h2>
+                    {activeChallenge.difficulty && (
+                      <span className={`${styles.difficultyBadge} ${styles[activeChallenge.difficulty.toLowerCase()] || styles.medium}`}>
+                        {activeChallenge.difficulty.toUpperCase()}
+                      </span>
+                    )}
                     <span className={styles.workspacePoints}>{activeChallenge.points || 50} Points</span>
                   </div>
 
@@ -2062,61 +2085,122 @@ export default function ChallengesPage() {
                         </div>
                       </div>
 
-                      <div className={styles.problemContent}>
-                        <h3>{activeChallenge.title}</h3>
-                        <p className={styles.problemText}>
+                      <div ref={problemContentRef} className={styles.problemContent}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: '#f8fafc' }}>{activeChallenge.title}</h3>
+                            {activeChallenge.difficulty && (
+                              <span className={`${styles.difficultyBadge} ${styles[activeChallenge.difficulty.toLowerCase()] || styles.medium}`}>
+                                {activeChallenge.difficulty.toUpperCase()}
+                              </span>
+                            )}
+                            <span className={styles.workspacePoints}>{activeChallenge.points || 50} pts</span>
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <Code2 size={14} color="#60a5fa" />
+                            <span>Algorithm Challenge</span>
+                          </div>
+                        </div>
+
+                        <div style={{ height: '1px', background: '#1e293b', marginBottom: '1.25rem' }} />
+
+                        <div className={styles.problemText} style={{ whiteSpace: 'pre-line' }}>
                           {activeChallenge.codeDetails?.problemStatement || activeChallenge.description || 'No detailed description provided.'}
-                        </p>
+                        </div>
 
                         <h4>Input Format</h4>
                         <p className={styles.problemText}>
-                          The first line contains integers or strings representing test case parameters. See sample input below for precise formatting.
+                          The first line contains inputs and parameters passed to standard input (STDIN). See sample test cases below for precise formatting.
                         </p>
 
                         <h4>Output Format</h4>
                         <p className={styles.problemText}>
-                          Print the computed result to standard output matching the exact data types and string formats in the sample output.
+                          Print the computed result to standard output (STDOUT) matching the expected sample output formatting.
                         </p>
 
                         <h4>Constraints</h4>
-                        <div style={{ background: '#131924', padding: '0.75rem 1rem', borderRadius: '4px', border: '1px solid #1e293b', fontFamily: 'monospace', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '1.5rem' }}>
-                          <div>• 1 ≤ N ≤ 10^5</div>
-                          <div>• Time Limit: 2.0 seconds</div>
-                          <div>• Memory Limit: 256 MB</div>
+                        <div style={{ background: '#131924', padding: '0.75rem 1rem', borderRadius: '6px', border: '1px solid #1e293b', fontFamily: 'Consolas, monospace', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+                          {activeChallenge.codeDetails?.constraints ? (
+                            <div>{activeChallenge.codeDetails.constraints}</div>
+                          ) : (
+                            <>
+                              <div>• 1 ≤ N ≤ 10^5</div>
+                              <div>• Time Limit: 2.0 seconds</div>
+                              <div>• Memory Limit: 256 MB</div>
+                            </>
+                          )}
                         </div>
 
-                        <h4>Sample Input 0</h4>
-                        <div className={styles.sampleBox}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                            <h4>STDIN</h4>
-                            <span style={{ fontSize: '0.75rem', color: '#64748b', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => navigator.clipboard.writeText(activeChallenge.codeDetails?.sampleInput || '1+2')}>Copy</span>
-                          </div>
-                          <pre>{activeChallenge.codeDetails?.sampleInput || '1+2'}</pre>
-                        </div>
+                        {(() => {
+                          const sampleIn = activeChallenge.codeDetails?.sampleInput ?? (activeChallenge.codeDetails?.testCases?.[0]?.input || '');
+                          const sampleOut = activeChallenge.codeDetails?.sampleOutput ?? (activeChallenge.codeDetails?.testCases?.[0]?.expectedOutput || '');
+                          return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+                              <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                                  <h4 style={{ margin: 0 }}>Sample Input 0 (STDIN)</h4>
+                                  {sampleIn && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(sampleIn);
+                                        setCopiedKey('sampleIn0');
+                                        setTimeout(() => setCopiedKey(null), 1800);
+                                      }}
+                                      style={{ background: 'transparent', border: 'none', color: copiedKey === 'sampleIn0' ? '#34d399' : '#60a5fa', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                                    >
+                                      {copiedKey === 'sampleIn0' ? <Check size={12} /> : <Copy size={12} />}
+                                      <span>{copiedKey === 'sampleIn0' ? 'Copied' : 'Copy'}</span>
+                                    </button>
+                                  )}
+                                </div>
+                                <div className={styles.sampleBox} style={{ margin: 0 }}>
+                                  <pre>{sampleIn || '(No stdin input required)'}</pre>
+                                </div>
+                              </div>
 
-                        <h4>Sample Output 0</h4>
-                        <div className={styles.sampleBox}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                            <h4>STDOUT</h4>
-                            <span style={{ fontSize: '0.75rem', color: '#64748b', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => navigator.clipboard.writeText(activeChallenge.codeDetails?.sampleOutput || '3')}>Copy</span>
-                          </div>
-                          <pre>{activeChallenge.codeDetails?.sampleOutput || '3'}</pre>
-                        </div>
+                              <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                                  <h4 style={{ margin: 0 }}>Sample Output 0 (STDOUT)</h4>
+                                  {sampleOut && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(sampleOut);
+                                        setCopiedKey('sampleOut0');
+                                        setTimeout(() => setCopiedKey(null), 1800);
+                                      }}
+                                      style={{ background: 'transparent', border: 'none', color: copiedKey === 'sampleOut0' ? '#34d399' : '#60a5fa', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                                    >
+                                      {copiedKey === 'sampleOut0' ? <Check size={12} /> : <Copy size={12} />}
+                                      <span>{copiedKey === 'sampleOut0' ? 'Copied' : 'Copy'}</span>
+                                    </button>
+                                  )}
+                                </div>
+                                <div className={styles.sampleBox} style={{ margin: 0 }}>
+                                  <pre>{sampleOut || '(No output)'}</pre>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
 
                         {activeChallenge.codeDetails?.testCases && activeChallenge.codeDetails.testCases.length > 0 && (
                           <>
                             <h4>Automated Evaluation Suite ({activeChallenge.codeDetails.testCases.length} Cases)</h4>
-                            {activeChallenge.codeDetails.testCases.map((tc, idx) => (
-                              <div key={idx} style={{ background: '#131924', border: '1px solid #1e293b', borderRadius: '4px', padding: '0.75rem 1rem', marginBottom: '0.75rem', fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', color: '#94a3b8', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                                  <span>TEST CASE #{idx + 1}</span>
-                                  <span style={{ color: tc.isHidden ? '#f87171' : '#34d399' }}>{tc.isHidden ? '🔒 Hidden' : '👁️ Visible'}</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                              {activeChallenge.codeDetails.testCases.map((tc, idx) => (
+                                <div key={idx} style={{ background: '#131924', border: '1px solid #1e293b', borderRadius: '6px', padding: '0.75rem 1rem', fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem', color: '#94a3b8', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                                    <span>TEST CASE #{idx + 1}</span>
+                                    <span style={{ color: tc.isHidden ? '#f87171' : '#34d399' }}>{tc.isHidden ? '🔒 Hidden' : '👁️ Visible'}</span>
+                                  </div>
+                                  <div><strong style={{ color: '#60a5fa' }}>Input:</strong> {tc.input && String(tc.input).trim() !== '' ? tc.input : '<empty>'}</div>
+                                  {!tc.isHidden && <div><strong style={{ color: '#00ea64' }}>Expected:</strong> {tc.expectedOutput && String(tc.expectedOutput).trim() !== '' ? tc.expectedOutput : '<empty>'}</div>}
+                                  {tc.isHidden && <div style={{ color: '#64748b', fontStyle: 'italic', marginTop: '0.2rem' }}>Expected output hidden until final submission</div>}
                                 </div>
-                                <div><strong style={{ color: '#60a5fa' }}>Input:</strong> {tc.input || 'None'}</div>
-                                {!tc.isHidden && <div><strong style={{ color: '#00ea64' }}>Expected:</strong> {tc.expectedOutput || 'None'}</div>}
-                                {tc.isHidden && <div style={{ color: '#64748b', fontStyle: 'italic' }}>Expected output hidden until submission</div>}
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </>
                         )}
                       </div>
@@ -2255,15 +2339,25 @@ export default function ChallengesPage() {
                             <div className={styles.hrResultsContainer}>
                               <div className={styles.hrVerdictHeader}>
                                 <div className={styles.hrVerdictTitleArea}>
-                                  <h2 className={compilerOutput.status === 'success' ? styles.verdictSuccess : styles.verdictError}>
-                                    {compilerOutput.title}
-                                  </h2>
+                                  <div className={compilerOutput.status === 'success' ? styles.verdictBadgeSuccess : styles.verdictBadgeError}>
+                                    {compilerOutput.status === 'success' ? (
+                                      <>
+                                        <CheckCircle2 size={16} />
+                                        <span>Accepted</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <AlertCircle size={16} />
+                                        <span>Wrong Answer</span>
+                                      </>
+                                    )}
+                                  </div>
                                   <span className={styles.verdictSubtitle}>{compilerOutput.subtitle}</span>
                                 </div>
                                 <div className={styles.hrCompilerMsg}>
-                                  <span className={styles.msgLabel}>Compiler Message</span>
+                                  <span className={styles.msgLabel}>Compiler</span>
                                   <span className={compilerOutput.status === 'success' ? styles.msgSuccess : styles.msgError}>
-                                    {compilerOutput.compilerMessage}
+                                    {compilerOutput.status === 'success' ? '✔ Executed Successfully' : '✘ Output Mismatch'}
                                   </span>
                                 </div>
                               </div>
@@ -2272,37 +2366,36 @@ export default function ChallengesPage() {
                                 <div style={{
                                   background: 'linear-gradient(135deg, rgba(234, 179, 8, 0.12) 0%, rgba(245, 158, 11, 0.06) 100%)',
                                   border: '1px solid rgba(234, 179, 8, 0.35)',
-                                  borderRadius: '10px',
-                                  padding: '0.9rem 1.15rem',
-                                  marginBottom: '1rem',
+                                  borderRadius: '8px',
+                                  padding: '0.75rem 1rem',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'space-between',
                                   gap: '1rem',
                                   flexWrap: 'wrap'
                                 }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                                     <div style={{
                                       background: 'rgba(234, 179, 8, 0.2)',
                                       borderRadius: '50%',
-                                      width: '34px',
-                                      height: '34px',
+                                      width: '30px',
+                                      height: '30px',
                                       display: 'flex',
                                       alignItems: 'center',
                                       justifyContent: 'center',
                                       color: '#facc15',
                                       fontWeight: 'bold',
-                                      fontSize: '1.05rem',
+                                      fontSize: '0.95rem',
                                       flexShrink: 0
                                     }}>
                                       ⚡
                                     </div>
                                     <div>
-                                      <div style={{ fontWeight: 600, color: '#fef08a', fontSize: '0.92rem' }}>
+                                      <div style={{ fontWeight: 700, color: '#fef08a', fontSize: '0.88rem' }}>
                                         Partial Credit Available ({compilerOutput.passedCount}/{compilerOutput.totalCount} Test Cases Accepted)
                                       </div>
-                                      <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.15rem' }}>
-                                        You can submit your solution with only the accepted test cases to receive proportional marks, or modify your code and run again.
+                                      <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.1rem' }}>
+                                        Submit now to lock in proportional points, or modify your code and test again.
                                       </div>
                                     </div>
                                   </div>
@@ -2310,10 +2403,10 @@ export default function ChallengesPage() {
                                     onClick={() => handleSubmitAcceptedCases(compilerOutput.passedCount, compilerOutput.totalCount)}
                                     disabled={submitting}
                                     className={styles.partialSubmitBtn}
-                                    style={{ padding: '0.55rem 1.15rem' }}
+                                    style={{ padding: '0.5rem 1rem', fontSize: '0.82rem' }}
                                   >
-                                    <CheckCircle2 size={16} color="#0f172a" />
-                                    {submitting ? 'Submitting...' : `Submit with Only Accepted Test Cases (${compilerOutput.passedCount}/${compilerOutput.totalCount})`}
+                                    <CheckCircle2 size={14} color="#0f172a" />
+                                    {submitting ? 'Submitting...' : `Submit Partial (${compilerOutput.passedCount}/${compilerOutput.totalCount})`}
                                   </button>
                                 </div>
                               )}
@@ -2321,12 +2414,13 @@ export default function ChallengesPage() {
                               <div className={styles.hrTestTabs}>
                                 {compilerOutput.testResults.map((tc, idx) => (
                                   <button
-                                    key={tc.id}
+                                    key={tc.id ?? idx}
+                                    type="button"
                                     onClick={() => setActiveTestCaseIdx(idx)}
                                     className={`${styles.hrTestTabBtn} ${activeTestCaseIdx === idx ? styles.hrTestTabActive : ''} ${tc.passed ? styles.tabPassed : styles.tabFailed}`}
                                   >
                                     <span className={styles.tabIcon}>{tc.passed ? '✔' : '✕'}</span>
-                                    <span>{tc.name}</span>
+                                    <span>{tc.name || `Case ${idx + 1}`}</span>
                                   </button>
                                 ))}
                               </div>
@@ -2338,32 +2432,83 @@ export default function ChallengesPage() {
                                       <div className={styles.hrDetailHeader}>
                                         <span>Runtime / Syntax Error Message</span>
                                       </div>
-                                      <pre className={styles.hrDetailCode}>{compilerOutput.testResults[activeTestCaseIdx].error}</pre>
+                                      <pre className={styles.hrDetailCode} style={{ color: '#fca5a5' }}>
+                                        {compilerOutput.testResults[activeTestCaseIdx].error}
+                                      </pre>
                                     </div>
                                   )}
 
                                   <div className={styles.hrDetailSection}>
                                     <div className={styles.hrDetailHeader}>
                                       <span>Input (stdin)</span>
-                                      <span className={styles.hrCopyLink} onClick={() => navigator.clipboard.writeText(compilerOutput.testResults[activeTestCaseIdx].input)}>Copy</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(compilerOutput.testResults[activeTestCaseIdx].input || '');
+                                          setCopiedKey(`tcIn_${activeTestCaseIdx}`);
+                                          setTimeout(() => setCopiedKey(null), 1800);
+                                        }}
+                                        className={styles.hrCopyLink}
+                                      >
+                                        {copiedKey === `tcIn_${activeTestCaseIdx}` ? 'Copied!' : 'Copy'}
+                                      </button>
                                     </div>
-                                    <pre className={styles.hrDetailCode}>{compilerOutput.testResults[activeTestCaseIdx].input}</pre>
+                                    <pre className={styles.hrDetailCode}>
+                                      {compilerOutput.testResults[activeTestCaseIdx].input && String(compilerOutput.testResults[activeTestCaseIdx].input).trim() !== ''
+                                        ? compilerOutput.testResults[activeTestCaseIdx].input
+                                        : '(empty stdin)'}
+                                    </pre>
                                   </div>
 
                                   <div className={styles.hrDetailSection}>
                                     <div className={styles.hrDetailHeader}>
                                       <span>Your Output (stdout)</span>
-                                      <span className={styles.hrCopyLink} onClick={() => navigator.clipboard.writeText(compilerOutput.testResults[activeTestCaseIdx].output)}>Copy</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(compilerOutput.testResults[activeTestCaseIdx].output || '');
+                                          setCopiedKey(`tcOut_${activeTestCaseIdx}`);
+                                          setTimeout(() => setCopiedKey(null), 1800);
+                                        }}
+                                        className={styles.hrCopyLink}
+                                      >
+                                        {copiedKey === `tcOut_${activeTestCaseIdx}` ? 'Copied!' : 'Copy'}
+                                      </button>
                                     </div>
-                                    <pre className={styles.hrDetailCode}>{compilerOutput.testResults[activeTestCaseIdx].output}</pre>
+                                    <pre
+                                      className={styles.hrDetailCode}
+                                      style={{
+                                        borderColor: compilerOutput.testResults[activeTestCaseIdx].passed ? 'rgba(0, 234, 100, 0.35)' : 'rgba(239, 68, 68, 0.4)',
+                                        background: compilerOutput.testResults[activeTestCaseIdx].passed ? 'rgba(0, 234, 100, 0.04)' : 'rgba(239, 68, 68, 0.05)',
+                                        color: compilerOutput.testResults[activeTestCaseIdx].passed ? '#86efac' : '#fca5a5'
+                                      }}
+                                    >
+                                      {compilerOutput.testResults[activeTestCaseIdx].output && String(compilerOutput.testResults[activeTestCaseIdx].output).trim() !== ''
+                                        ? compilerOutput.testResults[activeTestCaseIdx].output
+                                        : '(No output generated)'}
+                                    </pre>
                                   </div>
 
                                   <div className={styles.hrDetailSection}>
                                     <div className={styles.hrDetailHeader}>
                                       <span>Expected Output</span>
-                                      <span className={styles.hrCopyLink} onClick={() => navigator.clipboard.writeText(compilerOutput.testResults[activeTestCaseIdx].expected)}>Copy</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(compilerOutput.testResults[activeTestCaseIdx].expected || '');
+                                          setCopiedKey(`tcExp_${activeTestCaseIdx}`);
+                                          setTimeout(() => setCopiedKey(null), 1800);
+                                        }}
+                                        className={styles.hrCopyLink}
+                                      >
+                                        {copiedKey === `tcExp_${activeTestCaseIdx}` ? 'Copied!' : 'Copy'}
+                                      </button>
                                     </div>
-                                    <pre className={styles.hrDetailCode}>{compilerOutput.testResults[activeTestCaseIdx].expected}</pre>
+                                    <pre className={styles.hrDetailCode}>
+                                      {compilerOutput.testResults[activeTestCaseIdx].expected && String(compilerOutput.testResults[activeTestCaseIdx].expected).trim() !== ''
+                                        ? compilerOutput.testResults[activeTestCaseIdx].expected
+                                        : '(empty)'}
+                                    </pre>
                                   </div>
                                 </div>
                               )}
