@@ -2007,7 +2007,7 @@ export default function ChallengesPage() {
                             : '🎉 Solution Accepted!'}
                         </p>
                         <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.85rem', color: '#94a3b8' }}>
-                          Score Awarded: <strong style={{ color: '#fff' }}>{submissionResult.score ?? submissionResult.quizScore ?? activeChallenge?.points ?? 0} points</strong>
+                          Your solution has been evaluated and recorded successfully.
                         </p>
                       </div>
                     )}
