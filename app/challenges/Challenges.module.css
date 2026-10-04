@@ -667,13 +667,18 @@
 }
 
 .editorWorkspaceArea {
-  display: flex;
   flex: 1;
   min-height: 0;
   background: #0d141e;
   position: relative;
   overflow-y: auto;
   overflow-x: auto;
+  cursor: text;
+}
+
+.editorWorkspaceInner {
+  display: flex;
+  min-height: 100%;
 }
 
 .lineNumbers {
@@ -705,16 +710,31 @@
   tab-size: 4;
 }
 
+.textareaEditor pre,
+.textareaEditor textarea {
+  line-height: 1.6 !important;
+  font-family: Consolas, 'Fira Code', 'Courier New', monospace !important;
+  font-size: 0.9rem !important;
+}
+
 /* Compiler & Test Case Console */
 .compilerBox {
   background: #0e141e;
   border-top: 1px solid #1e293b;
-  height: 48%;
-  min-height: 220px;
-  max-height: 65%;
+  height: 36%;
+  min-height: 180px;
+  max-height: 52%;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  overflow: hidden;
+  transition: height 0.2s ease, min-height 0.2s ease;
+}
+
+.compilerBoxMinimized {
+  height: 42px !important;
+  min-height: 42px !important;
+  max-height: 42px !important;
   overflow: hidden;
 }
 
@@ -761,6 +781,7 @@
   border-top: 1px solid #1e293b;
   gap: 0.75rem;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .editorEnvStatus {
@@ -1093,6 +1114,10 @@
   flex-wrap: wrap;
   gap: 0.75rem;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  background: #0e141e;
+  z-index: 3;
 }
 
 .hrVerdictTitleArea {
@@ -1166,8 +1191,12 @@
   display: flex;
   gap: 0.5rem;
   overflow-x: auto;
-  padding-bottom: 0.25rem;
+  padding: 0.35rem 0;
   flex-shrink: 0;
+  position: sticky;
+  top: 48px;
+  background: #0e141e;
+  z-index: 2;
 }
 
 .hrTestTabBtn {

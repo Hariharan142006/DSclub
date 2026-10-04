@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Code2, HelpCircle, Trophy, ShieldCheck, ShieldAlert, Zap, ArrowRight, CheckCircle2, AlertCircle, RefreshCw, X, Play, Send, Award, Terminal, Cpu, Timer, Lock, Copy, Check } from 'lucide-react';
+import { Code2, HelpCircle, Trophy, ShieldCheck, ShieldAlert, Zap, ArrowRight, CheckCircle2, AlertCircle, RefreshCw, X, Play, Send, Award, Terminal, Cpu, Timer, Lock, Copy, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import styles from './Challenges.module.css';
 import IDCardModal from '@/components/organisms/IDCardModal/IDCardModal';
 import Editor from 'react-simple-code-editor';
@@ -12,6 +12,18 @@ import 'prismjs/components/prism-python';
 import 'prismjs/components/prism-java';
 import 'prismjs/components/prism-javascript';
 import 'prismjs/themes/prism-okaidia.css';
+
+const normalizeOutputForComparison = (str) => {
+  if (typeof str !== 'string') return '';
+  return str
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map(line => line.trimEnd())
+    .join('\n')
+    .trim();
+};
+
 export default function ChallengesPage() {
   const [challenges, setChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +46,7 @@ export default function ChallengesPage() {
   // Compiler state
   const [selectedLang, setSelectedLang] = useState('python'); // 'python' | 'java' | 'javascript'
   const [compilerOutput, setCompilerOutput] = useState(null);
+  const [compilerMinimized, setCompilerMinimized] = useState(false);
   const [compiling, setCompiling] = useState(false);
   const [activeTestCaseIdx, setActiveTestCaseIdx] = useState(0);
   const [copiedKey, setCopiedKey] = useState(null);
@@ -948,14 +961,31 @@ export default function ChallengesPage() {
             const prepCode = `import sys as __sys, io as __io; __sys.stdin = __io.StringIO('${safeInput}')`;
             await pyodide.runPythonAsync(prepCode);
             await pyodide.runPythonAsync(codeSubmission);
+            
+            // If the user defined solve(), main(), or solution() but forgot to call it at the bottom, auto-call it!
+            if (capturedStdout.length === 0) {
+              const autoInvokeCode = `
+import inspect as __inspect
+for __fn_name in ['solve', 'main', 'solution']:
+    if __fn_name in globals() and callable(globals()[__fn_name]):
+        try:
+            __sig = __inspect.signature(globals()[__fn_name])
+            if len(__sig.parameters) == 0:
+                globals()[__fn_name]()
+                break
+        except Exception:
+            pass
+`;
+              await pyodide.runPythonAsync(autoInvokeCode);
+            }
             const endTime = performance.now();
             const execTime = ((endTime - startTime) / 1000).toFixed(3);
             
             const actualOutput = capturedStdout.join('\n').trim() || '(No output printed)';
             const expected = (tc.expectedOutput || '').trim();
-            const normActual = actualOutput.toLowerCase().replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
-            const normExpected = expected.toLowerCase().replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
-            const isMatch = (actualOutput === expected) || (normExpected.length > 0 && (normActual === normExpected || normActual.split('\n').some(line => line.trim() === normExpected)));
+            const normActual = normalizeOutputForComparison(capturedStdout.join('\n'));
+            const normExpected = normalizeOutputForComparison(tc.expectedOutput || '');
+            const isMatch = (normActual === normExpected);
 
             if (!isMatch) allPassed = false;
 
@@ -1034,13 +1064,22 @@ export default function ChallengesPage() {
         try {
           window.stdinInput = tc.input || '';
           new Function(codeSubmission)();
+          if (capturedLogs.length === 0) {
+            try {
+              new Function(`
+                ${codeSubmission};
+                if (typeof solve === 'function') { solve(); }
+                else if (typeof main === 'function') { main(); }
+              `)();
+            } catch (_) {}
+          }
           const endTime = performance.now();
           const execTime = ((endTime - startTime) / 1000).toFixed(3);
           const actualOutput = capturedLogs.join('\n').trim() || '(No output printed)';
           const expected = (tc.expectedOutput || '').trim();
-          const normActual = actualOutput.toLowerCase().replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
-          const normExpected = expected.toLowerCase().replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
-          const isMatch = (actualOutput === expected) || (normExpected.length > 0 && (normActual === normExpected || normActual.split('\n').some(line => line.trim() === normExpected)));
+          const normActual = normalizeOutputForComparison(capturedLogs.join('\n'));
+          const normExpected = normalizeOutputForComparison(tc.expectedOutput || '');
+          const isMatch = (normActual === normExpected);
 
           if (!isMatch) allPassed = false;
           testResults.push({
@@ -1126,9 +1165,90 @@ export default function ChallengesPage() {
     return { allPassed, testResults, summaryText: fakeOutput };
   };
 
+  const ensureCaretVisible = (textarea) => {
+    if (!textarea) return;
+    const container = textarea.closest('[class*="editorWorkspaceArea"]');
+    if (!container) return;
+
+    const selStart = textarea.selectionStart;
+    const textBefore = textarea.value.substring(0, selStart);
+    const linesBefore = textBefore.split('\n').length;
+    
+    // approximate line height: 1.6 * 0.9rem ~= 23.04px. Using 24px + 20px padding
+    const lineHeight = 24; 
+    const caretY = 20 + (linesBefore * lineHeight);
+    
+    const { scrollTop, clientHeight } = container;
+    
+    if (caretY > scrollTop + clientHeight - 40) {
+      container.scrollTop = caretY - clientHeight + 40;
+    } else if (caretY < scrollTop + 20) {
+      container.scrollTop = Math.max(0, caretY - 40);
+    }
+  };
+
+  const handleEditorKeyDown = (e) => {
+    const textarea = e.currentTarget;
+    const value = textarea.value;
+    const selStart = textarea.selectionStart;
+    const selEnd = textarea.selectionEnd;
+
+    if (e.key === 'Enter') {
+      // Find current line up to caret
+      const linesBefore = value.substring(0, selStart).split('\n');
+      const currentLine = linesBefore[linesBefore.length - 1];
+      const match = currentLine.match(/^[ \t]*/);
+      let indent = match ? match[0] : '';
+
+      const trimmed = currentLine.trim();
+      const indentUnit = selectedLang === 'python' ? '    ' : '  ';
+
+      // Auto-indent after block starters (colons in Python, braces in JS/Java)
+      if (trimmed.endsWith(':') || trimmed.endsWith('{') || trimmed.endsWith('(') || trimmed.endsWith('[')) {
+        indent += indentUnit;
+      }
+
+      e.preventDefault();
+      const insertStr = '\n' + indent;
+
+      let inserted = false;
+      try {
+        inserted = document.execCommand('insertText', false, insertStr);
+      } catch (_) {}
+
+      if (!inserted) {
+        const nextValue = value.substring(0, selStart) + insertStr + value.substring(selEnd);
+        setCodeSubmission(nextValue);
+        const newPos = selStart + insertStr.length;
+        requestAnimationFrame(() => {
+          textarea.selectionStart = textarea.selectionEnd = newPos;
+        });
+      }
+    } else if (e.key === 'Tab') {
+      const indentUnit = selectedLang === 'python' ? '    ' : '  ';
+      if (!e.shiftKey && selStart === selEnd) {
+        e.preventDefault();
+        let inserted = false;
+        try {
+          inserted = document.execCommand('insertText', false, indentUnit);
+        } catch (_) {}
+        if (!inserted) {
+          const nextValue = value.substring(0, selStart) + indentUnit + value.substring(selEnd);
+          setCodeSubmission(nextValue);
+          const newPos = selStart + indentUnit.length;
+          requestAnimationFrame(() => {
+            textarea.selectionStart = textarea.selectionEnd = newPos;
+          });
+        }
+      }
+    }
+    setTimeout(() => ensureCaretVisible(textarea), 10);
+  };
+
   const handleCompileAndRun = async () => {
     if (!activeChallenge) return;
     setCompiling(true);
+    setCompilerMinimized(false);
     setSubmissionResult(null);
 
     const testCases = (activeChallenge.codeDetails?.testCases && activeChallenge.codeDetails.testCases.length > 0)
@@ -1167,6 +1287,7 @@ export default function ChallengesPage() {
   const handleSubmitChallenge = async () => {
     if (!verifiedMember || !activeChallenge) return;
     setSubmitting(true);
+    setCompilerMinimized(false);
     setSubmissionResult(null);
 
     if (activeChallenge.type === 'code' || activeChallenge.type === 'tsp') {
@@ -1314,29 +1435,6 @@ export default function ChallengesPage() {
         }
       }
     });
-  };
-
-  const handleEditorKeyDown = (e) => {
-    const textarea = e.target;
-    const val = textarea.value;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const lines = val.substring(0, start).split('\n');
-      const currentLine = lines[lines.length - 1];
-      const match = currentLine.match(/^\s*/);
-      let indent = match ? match[0] : '';
-
-      if (currentLine.trim().endsWith(':') || currentLine.trim().endsWith('{')) {
-        indent += '  ';
-      }
-
-      textarea.value = val.substring(0, start) + '\n' + indent + val.substring(end);
-      textarea.selectionStart = textarea.selectionEnd = start + 1 + indent.length;
-      setCodeSubmission(textarea.value);
-    }
   };
 
   const filteredChallenges = challenges.filter((c) => {
@@ -2244,34 +2342,72 @@ export default function ChallengesPage() {
                         </div>
                       </div>
 
-                      <div className={styles.editorWorkspaceArea}>
-                        <div className={styles.lineNumbers}>
-                          {Array.from({ length: Math.max(15, codeSubmission.split('\n').length) }, (_, i) => (
-                            <div key={i}>{i + 1}</div>
-                          ))}
-                        </div>
-                        <Editor
-                          value={codeSubmission}
-                          onValueChange={code => setCodeSubmission(code)}
-                          highlight={code => {
-                            const lang = selectedLang === 'python' ? 'python' : selectedLang === 'java' ? 'java' : 'javascript';
-                            if (Prism.languages[lang]) {
-                              return Prism.highlight(code, Prism.languages[lang], lang);
+                      <div
+                        className={styles.editorWorkspaceArea}
+                        onClick={(e) => {
+                          if (e.target === e.currentTarget || e.target.classList.contains(styles.editorWorkspaceInner)) {
+                            const ta = e.currentTarget.querySelector('textarea');
+                            if (ta) {
+                              ta.focus();
+                              const len = ta.value.length;
+                              ta.setSelectionRange(len, len);
                             }
-                            return code;
-                          }}
-                          padding={20}
-                          style={{
-                            fontFamily: "Consolas, 'Fira Code', 'Courier New', monospace",
-                            fontSize: '0.9rem',
-                            minHeight: '100%',
-                            flexGrow: 1,
-                            backgroundColor: 'transparent'
-                          }}
-                          className={styles.textareaEditor}
-                          textareaClassName="code-textarea"
-                          onKeyDown={handleEditorKeyDown}
-                        />
+                          }
+                        }}
+                      >
+                        <div className={styles.editorWorkspaceInner}>
+                          <div className={styles.lineNumbers}>
+                            {codeSubmission.split('\n').map((_, i) => (
+                              <div
+                                key={i}
+                                style={{ cursor: 'pointer' }}
+                                title={`Go to line ${i + 1}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const lines = codeSubmission.split('\n');
+                                  let offset = 0;
+                                  for (let l = 0; l < i && l < lines.length; l++) {
+                                    offset += lines[l].length + 1;
+                                  }
+                                  const ta = e.currentTarget.closest(`.${styles.editorWorkspaceArea}`)?.querySelector('textarea');
+                                  if (ta) {
+                                    ta.focus();
+                                    ta.setSelectionRange(offset, offset);
+                                  }
+                                }}
+                              >
+                                {i + 1}
+                              </div>
+                            ))}
+                          </div>
+                          <Editor
+                            value={codeSubmission}
+                            onValueChange={code => setCodeSubmission(code)}
+                            highlight={code => {
+                              const lang = selectedLang === 'python' ? 'python' : selectedLang === 'java' ? 'java' : 'javascript';
+                              if (Prism.languages[lang]) {
+                                return Prism.highlight(code, Prism.languages[lang], lang);
+                              }
+                              return code;
+                            }}
+                            padding={20}
+                            tabSize={selectedLang === 'python' ? 4 : 2}
+                            insertSpaces={true}
+                            onKeyDown={handleEditorKeyDown}
+                            onKeyUp={(e) => ensureCaretVisible(e.currentTarget)}
+                            onClick={(e) => ensureCaretVisible(e.currentTarget)}
+                            style={{
+                              fontFamily: "Consolas, 'Fira Code', 'Courier New', monospace",
+                              fontSize: '0.9rem',
+                              lineHeight: 1.6,
+                              minHeight: '100%',
+                              flexGrow: 1,
+                              backgroundColor: 'transparent'
+                            }}
+                            className={styles.textareaEditor}
+                            textareaClassName="code-textarea"
+                          />
+                        </div>
                       </div>
                       
                       <div className={styles.editorActions}>
@@ -2312,8 +2448,13 @@ export default function ChallengesPage() {
                       </div>
 
                       {compilerOutput && (
-                        <div ref={compilerBoxRef} className={styles.compilerBox}>
-                          <div className={styles.compilerHeader}>
+                        <div ref={compilerBoxRef} className={`${styles.compilerBox} ${compilerMinimized ? styles.compilerBoxMinimized : ''}`}>
+                          <div
+                            className={styles.compilerHeader}
+                            style={{ cursor: 'pointer', userSelect: 'none' }}
+                            onClick={() => setCompilerMinimized(!compilerMinimized)}
+                            title={compilerMinimized ? 'Click to expand console' : 'Click to minimize console'}
+                          >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                               <Terminal size={14} color="#00ea64" />
                               <span>Execution Console & Test Results</span>
@@ -2321,16 +2462,35 @@ export default function ChallengesPage() {
                                 {compilerOutput.status === 'success' ? '✔ Accepted' : compilerOutput.status === 'compiling' ? '⏳ Running...' : '✘ Logic / Runtime Error'}
                               </span>
                             </div>
-                            <button
-                              onClick={() => setCompilerOutput(null)}
-                              style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer' }}
-                              title="Close Console"
-                            >
-                              <X size={14} />
-                            </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCompilerMinimized(!compilerMinimized);
+                                }}
+                                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                title={compilerMinimized ? 'Expand Console' : 'Minimize Console'}
+                              >
+                                {compilerMinimized ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCompilerOutput(null);
+                                }}
+                                style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                title="Close Console"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
                           </div>
 
-                          {compilerOutput.status === 'compiling' ? (
+                          {!compilerMinimized && (
+                            <>
+                              {compilerOutput.status === 'compiling' ? (
                             <div className={styles.compilingState}>
                               <RefreshCw size={28} className={styles.spinner} />
                               <pre className={styles.compilingText}>{compilerOutput.text}</pre>
@@ -2487,6 +2647,11 @@ export default function ChallengesPage() {
                                         ? compilerOutput.testResults[activeTestCaseIdx].output
                                         : '(No output generated)'}
                                     </pre>
+                                    {compilerOutput.testResults[activeTestCaseIdx].output === '(No output printed)' && (
+                                      <div style={{ fontSize: '0.78rem', color: '#fbbf24', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                        <span>💡 Hint: No output was printed. Make sure your code calls print() or invokes solve() at the bottom.</span>
+                                      </div>
+                                    )}
                                   </div>
 
                                   <div className={styles.hrDetailSection}>
@@ -2516,8 +2681,10 @@ export default function ChallengesPage() {
                           ) : (
                             <pre className={styles.compilerText}>{compilerOutput.text}</pre>
                           )}
-                        </div>
+                        </>
                       )}
+                    </div>
+                  )}
                     </div>
                   </div>
                 ) : (
