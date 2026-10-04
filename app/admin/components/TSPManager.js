@@ -61,6 +61,7 @@ export default function TSPManager() {
   const [generatedPdfDocTitle, setGeneratedPdfDocTitle] = useState('');
   const [showReportExportModal, setShowReportExportModal] = useState(false);
   const [reportScope, setReportScope] = useState('ALL'); // 'ALL' or 'CODE'
+  const [reportSectionFilter, setReportSectionFilter] = useState('ALL');
   const [selectedReportCode, setSelectedReportCode] = useState('');
   const [manualReportCodeInput, setManualReportCodeInput] = useState('');
   const [exportingReportType, setExportingReportType] = useState(null); // 'excel' | 'pdf' | null
@@ -410,34 +411,45 @@ export default function TSPManager() {
 
       // Institutional Header
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(13.5);
+      doc.setFontSize(13);
       doc.setTextColor(15, 23, 42);
-      doc.text("PANIMALAR ENGINEERING COLLEGE", 105, 12, { align: 'center' });
+      doc.text("PANIMALAR ENGINEERING COLLEGE", 105, 11, { align: 'center' });
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text("An Autonomous Institution [JAISAKTHI EDUCATIONAL TRUST]", 105, 15, { align: 'center' });
 
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
+      doc.setFontSize(6.8);
       doc.setTextColor(71, 85, 105);
-      doc.text("An Autonomous Institution  •  Affiliated to Anna University, Chennai", 105, 16.5, { align: 'center' });
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9.5);
-      doc.setTextColor(0, 114, 255);
-      doc.text("DEPARTMENT OF ARTIFICIAL INTELLIGENCE & DATA SCIENCE", 105, 21, { align: 'center' });
-
-      // Title & Event
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.setTextColor(15, 23, 42);
-      doc.text("ATTENDANCE SHEET", 105, 27.5, { align: 'center' });
+      doc.text("Approved by AICTE | Affiliated to Anna University | Recognized by UGC", 105, 18.5, { align: 'center' });
+      doc.text("All Eligible UG Programs Are Accredited by NBA", 105, 22, { align: 'center' });
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
+      doc.setTextColor(0, 114, 255);
+      doc.text("DEPARTMENT OF ARTIFICIAL INTELLIGENCE & DATA SCIENCE", 105, 26.5, { align: 'center' });
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text("23ES1311 – TECHNICAL SKILL PRACTICES II", 105, 31, { align: 'center' });
+
+      // Title & Event
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text("ATTENDANCE SHEET", 105, 36.5, { align: 'center' });
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
       doc.setTextColor(30, 41, 59);
-      doc.text(`${tsp.title || 'Technical Skill Practice (TSP)'}`, 105, 32, { align: 'center' });
+      doc.text(`${tsp.title || 'Technical Skill Practice (TSP)'}`, 105, 41, { align: 'center' });
 
       // Scope metadata line
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
+      doc.setFontSize(7.5);
       doc.setTextColor(71, 85, 105);
       let metaLine = '';
       if (withCode) {
@@ -448,12 +460,12 @@ export default function TSPManager() {
         const secLabel = cleanSec === 'ALL' ? 'All Sections' : `Section: ${cleanSec}`;
         metaLine = `General Attendance  |  ${secLabel}  |  Total Students: ${candidates.length}  |  Date: ${new Date().toLocaleDateString('en-GB')}`;
       }
-      doc.text(metaLine, 105, 36.5, { align: 'center' });
+      doc.text(metaLine, 105, 45, { align: 'center' });
 
       // Separator line
       doc.setDrawColor(203, 213, 225);
       doc.setLineWidth(0.5);
-      doc.line(14, 39, 196, 39);
+      doc.line(14, 47.5, 196, 47.5);
 
       let tableColumn = [];
       let tableRows = [];
@@ -463,8 +475,8 @@ export default function TSPManager() {
         tableColumn = [
           "S.No",
           "Roll Number",
-          "Name",
           "Register Number",
+          "Name",
           "Section",
           "Assigned Code",
           "Signature"
@@ -472,17 +484,17 @@ export default function TSPManager() {
         tableRows = candidates.map((stu, i) => [
           i + 1,
           stu.rollNo || '—',
-          stu.name || '—',
           stu.registerNo || '—',
+          stu.name || '—',
           stu.section || '—',
           stu.assignedCode || '—',
           ""
         ]);
         columnStyles = {
           0: { cellWidth: 12, halign: 'center' },
-          1: { cellWidth: 30, fontStyle: 'bold', halign: 'center' },
-          2: { cellWidth: 'auto', halign: 'left' },
-          3: { cellWidth: 32, halign: 'center' },
+          1: { cellWidth: 28, fontStyle: 'bold', halign: 'center' },
+          2: { cellWidth: 32, halign: 'center' },
+          3: { cellWidth: 'auto', halign: 'left' },
           4: { cellWidth: 16, halign: 'center', fontStyle: 'bold' },
           5: { cellWidth: 24, halign: 'center', fontStyle: 'bold' },
           6: { cellWidth: 30, halign: 'center' }
@@ -491,36 +503,33 @@ export default function TSPManager() {
         tableColumn = [
           "S.No",
           "Roll Number",
-          "Name",
           "Register Number",
-          "Section",
+          "Name",
           "Signature"
         ];
         tableRows = candidates.map((stu, i) => [
           i + 1,
           stu.rollNo || '—',
-          stu.name || '—',
           stu.registerNo || '—',
-          stu.section || '—',
+          stu.name || '—',
           ""
         ]);
         columnStyles = {
-          0: { cellWidth: 12, halign: 'center' },
-          1: { cellWidth: 32, fontStyle: 'bold', halign: 'center' },
-          2: { cellWidth: 'auto', halign: 'left' },
-          3: { cellWidth: 34, halign: 'center' },
-          4: { cellWidth: 18, halign: 'center', fontStyle: 'bold' },
-          5: { cellWidth: 36, halign: 'center' }
+          0: { cellWidth: 14, halign: 'center' },
+          1: { cellWidth: 34, fontStyle: 'bold', halign: 'center' },
+          2: { cellWidth: 38, halign: 'center' },
+          3: { cellWidth: 'auto', halign: 'left' },
+          4: { cellWidth: 42, halign: 'center' }
         };
       }
 
       autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
-        startY: 42,
+        startY: 50.5,
         theme: 'grid',
         tableWidth: 182,
-        margin: { top: 42, bottom: 26, left: 14, right: 14 },
+        margin: { top: 20, bottom: 26, left: 14, right: 14 },
         headStyles: {
           fillColor: [15, 23, 42],
           textColor: [255, 255, 255],
@@ -594,8 +603,8 @@ export default function TSPManager() {
         excelRows = candidates.map((stu, i) => ({
           'S.No': i + 1,
           'Roll Number': stu.rollNo || '—',
-          'Name': stu.name || '—',
           'Register Number': stu.registerNo || '—',
+          'Name': stu.name || '—',
           'Section': stu.section || '—',
           'Assigned Code': stu.assignedCode || '—',
           'Signature': '' // Blank signature column
@@ -603,8 +612,8 @@ export default function TSPManager() {
         colWidths = [
           { wch: 8 },  // S.No
           { wch: 20 }, // Roll Number
-          { wch: 30 }, // Name
           { wch: 20 }, // Register Number
+          { wch: 30 }, // Name
           { wch: 10 }, // Section
           { wch: 16 }, // Assigned Code
           { wch: 25 }, // Signature
@@ -613,17 +622,15 @@ export default function TSPManager() {
         excelRows = candidates.map((stu, i) => ({
           'S.No': i + 1,
           'Roll Number': stu.rollNo || '—',
-          'Name': stu.name || '—',
           'Register Number': stu.registerNo || '—',
-          'Section': stu.section || '—',
+          'Name': stu.name || '—',
           'Signature': '' // Blank signature column
         }));
         colWidths = [
           { wch: 8 },  // S.No
           { wch: 20 }, // Roll Number
+          { wch: 22 }, // Register Number
           { wch: 32 }, // Name
-          { wch: 20 }, // Register Number
-          { wch: 12 }, // Section
           { wch: 25 }, // Signature
         ];
       }
@@ -855,27 +862,38 @@ export default function TSPManager() {
 
       // Institutional Header
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(15);
+      doc.setFontSize(14.5);
       doc.setTextColor(15, 23, 42);
-      doc.text("PANIMALAR ENGINEERING COLLEGE", 148.5, 11, { align: 'center' });
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8.5);
-      doc.setTextColor(71, 85, 105);
-      doc.text("An Autonomous Institution  •  Affiliated to Anna University, Chennai", 148.5, 16, { align: 'center' });
+      doc.text("PANIMALAR ENGINEERING COLLEGE", 148.5, 10.5, { align: 'center' });
 
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.setTextColor(15, 23, 42);
-      doc.text("DEPARTMENT OF ARTIFICIAL INTELLIGENCE & DATA SCIENCE", 148.5, 21.5, { align: 'center' });
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text("An Autonomous Institution [JAISAKTHI EDUCATIONAL TRUST]", 148.5, 14.5, { align: 'center' });
 
-      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.2);
+      doc.setTextColor(71, 85, 105);
+      doc.text("Approved by AICTE | Affiliated to Anna University | Recognized by UGC", 148.5, 18, { align: 'center' });
+      doc.text("All Eligible UG Programs Are Accredited by NBA", 148.5, 21.5, { align: 'center' });
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(15, 23, 42);
+      doc.text("DEPARTMENT OF ARTIFICIAL INTELLIGENCE & DATA SCIENCE", 148.5, 26, { align: 'center' });
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text("23ES1311 – TECHNICAL SKILL PRACTICES II", 148.5, 30.5, { align: 'center' });
+
+      doc.setFontSize(10.5);
       doc.setTextColor(2, 132, 199);
-      doc.text(`${tsp.title} — Student Performance & Results Report`, 148.5, 27.5, { align: 'center' });
+      doc.text(`${tsp.title} — Student Performance & Results Report`, 148.5, 35.5, { align: 'center' });
 
       doc.setDrawColor(203, 213, 225);
       doc.setLineWidth(0.5);
-      doc.line(14, 32, 283, 32);
+      doc.line(14, 39, 283, 39);
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8.5);
@@ -884,15 +902,15 @@ export default function TSPManager() {
       const scopeLabel = cleanCode === 'ALL'
         ? `Scope: All Students${secLabel ? ` (${secLabel})` : ''}`
         : `Scope: Access Code ${cleanCode}${secLabel ? ` (${secLabel})` : ''}`;
-      doc.text(scopeLabel, 14, 37);
-      doc.text(`Total Candidates: ${students.length}`, 148.5, 37, { align: 'center' });
-      doc.text(`Generated: ${new Date().toLocaleString('en-IN')}`, 283, 37, { align: 'right' });
+      doc.text(scopeLabel, 14, 43.5);
+      doc.text(`Total Candidates: ${students.length}`, 148.5, 43.5, { align: 'center' });
+      doc.text(`Generated: ${new Date().toLocaleString('en-IN')}`, 283, 43.5, { align: 'right' });
 
       const tableColumn = [
         "S.No",
-        "Name",
         "Roll No",
         "Register No",
+        "Name",
         "Sec",
         "Score in Easy (out of)",
         "Score (Med)",
@@ -905,9 +923,9 @@ export default function TSPManager() {
 
       const tableRows = students.map(stu => [
         stu.sNo,
-        stu.name || 'Anonymous',
         stu.rollNo || stu.memberId,
         stu.registerNo || '—',
+        stu.name || 'Anonymous',
         stu.section || '—',
         `${stu.scoreEasy} / ${stu.maxEasy}`,
         stu.scoreMedium ?? 0,
@@ -921,15 +939,15 @@ export default function TSPManager() {
       const autoTableOptions = {
         head: [tableColumn],
         body: tableRows,
-        startY: 43,
+        startY: 47.5,
         theme: 'grid',
         styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
         headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
         columnStyles: {
           0: { halign: 'center', cellWidth: 10 },
-          1: { halign: 'left', cellWidth: 36 },
-          2: { halign: 'center', cellWidth: 24 },
-          3: { halign: 'center', cellWidth: 26 },
+          1: { halign: 'center', cellWidth: 24 },
+          2: { halign: 'center', cellWidth: 26 },
+          3: { halign: 'left', cellWidth: 36 },
           4: { halign: 'center', cellWidth: 14 },
           5: { halign: 'center', cellWidth: 28 },
           6: { halign: 'center', cellWidth: 20 },
@@ -1746,27 +1764,38 @@ export default function TSPManager() {
       }
       
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(15);
+      doc.setFontSize(14.5);
       doc.setTextColor(15, 23, 42);
-      doc.text("PANIMALAR ENGINEERING COLLEGE", 148.5, 11, { align: 'center' });
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8.5);
-      doc.setTextColor(71, 85, 105);
-      doc.text("An Autonomous Institution  •  Affiliated to Anna University, Chennai", 148.5, 16, { align: 'center' });
+      doc.text("PANIMALAR ENGINEERING COLLEGE", 148.5, 10.5, { align: 'center' });
 
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.setTextColor(15, 23, 42);
-      doc.text("DEPARTMENT OF ARTIFICIAL INTELLIGENCE & DATA SCIENCE", 148.5, 21.5, { align: 'center' });
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text("An Autonomous Institution [JAISAKTHI EDUCATIONAL TRUST]", 148.5, 14.5, { align: 'center' });
 
-      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.2);
+      doc.setTextColor(71, 85, 105);
+      doc.text("Approved by AICTE | Affiliated to Anna University | Recognized by UGC", 148.5, 18, { align: 'center' });
+      doc.text("All Eligible UG Programs Are Accredited by NBA", 148.5, 21.5, { align: 'center' });
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(15, 23, 42);
+      doc.text("DEPARTMENT OF ARTIFICIAL INTELLIGENCE & DATA SCIENCE", 148.5, 26, { align: 'center' });
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text("23ES1311 – TECHNICAL SKILL PRACTICES II", 148.5, 30.5, { align: 'center' });
+
+      doc.setFontSize(10.5);
       doc.setTextColor(2, 132, 199);
-      doc.text(`${tsp.title} — Detailed Submissions Report`, 148.5, 27.5, { align: 'center' });
+      doc.text(`${tsp.title} — Detailed Submissions Report`, 148.5, 35.5, { align: 'center' });
       
       doc.setDrawColor(203, 213, 225);
       doc.setLineWidth(0.5);
-      doc.line(14, 32, 283, 32);
+      doc.line(14, 39, 283, 39);
       
       // Fetch Detailed Submissions Data
       const res = await fetch(`/api/tsp/${tsp._id || tsp.id}/submissions`);
@@ -2650,6 +2679,7 @@ export default function TSPManager() {
                 <button
                   onClick={() => {
                     setReportScope('ALL');
+                    setReportSectionFilter('ALL');
                     setSelectedReportCode('');
                     setManualReportCodeInput('');
                     setShowReportExportModal(true);
@@ -5390,15 +5420,15 @@ export default function TSPManager() {
                 {/* Required Columns Specification Note */}
                 <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px dashed rgba(255, 255, 255, 0.15)', borderRadius: '10px', padding: '0.85rem 1rem', fontSize: '0.78rem', color: '#cbd5e1', lineHeight: 1.5 }}>
                   <strong style={{ color: attendanceWithCode ? '#f59e0b' : '#38bdf8' }}>
-                    📋 Columns included ({attendanceWithCode ? '7 columns — With Code' : '6 columns — Without Code'}):
+                    📋 Columns included ({attendanceWithCode ? '7 columns — With Code' : '5 columns — Without Code'}):
                   </strong><br />
                   {attendanceWithCode ? (
                     <>
-                      <strong>1. S.No</strong> • <strong>2. Roll Number</strong> • <strong>3. Name</strong> • <strong>4. Register Number</strong> • <strong>5. Section</strong> • <strong style={{ color: '#f59e0b' }}>6. Assigned Code</strong> • <strong style={{ color: '#10b981' }}>7. Signature (Blank for physical sign)</strong>
+                      <strong>1. S.No</strong> • <strong>2. Roll Number</strong> • <strong>3. Register Number</strong> • <strong>4. Name</strong> • <strong>5. Section</strong> • <strong style={{ color: '#f59e0b' }}>6. Assigned Code</strong> • <strong style={{ color: '#10b981' }}>7. Signature (Blank)</strong>
                     </>
                   ) : (
                     <>
-                      <strong>1. S.No</strong> • <strong>2. Roll Number</strong> • <strong>3. Name</strong> • <strong>4. Register Number</strong> • <strong>5. Section</strong> • <strong style={{ color: '#10b981' }}>6. Signature (Blank for physical sign)</strong>
+                      <strong>1. S.No</strong> • <strong>2. Roll Number</strong> • <strong>3. Register Number</strong> • <strong>4. Name</strong> • <strong style={{ color: '#10b981' }}>5. Signature (Blank)</strong>
                     </>
                   )}
                 </div>

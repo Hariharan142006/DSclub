@@ -369,6 +369,18 @@ export default function ChallengesPage() {
         const parsed = JSON.parse(savedMember);
         setVerifiedMember(parsed);
         refreshSolvedChallenges(parsed.memberId);
+
+        // Validate cached member against server to handle deleted members
+        fetch('/api/members/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ memberId: parsed.memberId })
+        }).then(res => {
+          if (!res.ok) {
+            sessionStorage.removeItem('dsc_verified_member');
+            setVerifiedMember(null);
+          }
+        }).catch(() => {});
       } catch (e) {}
     }
     const savedSolved = sessionStorage.getItem('dsc_solved_challenges');
@@ -829,6 +841,21 @@ export default function ChallengesPage() {
       return;
     }
     const cleanMid = currentMemberId ? String(currentMemberId).trim().toUpperCase() : null;
+    if (cleanMid) {
+      try {
+        const verifyCheck = await fetch('/api/members/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ memberId: cleanMid })
+        });
+        if (!verifyCheck.ok) {
+          sessionStorage.removeItem('dsc_verified_member');
+          setVerifiedMember(null);
+          alert(`⛔ Member ID "${cleanMid}" is not recognized or has been removed from the authorized participant list.`);
+          return;
+        }
+      } catch (e) {}
+    }
     const isCompletedDB = activeTSP.completedMembers && cleanMid && activeTSP.completedMembers.some(m => m && String(m).trim().toUpperCase() === cleanMid);
     const isCompletedLocal = typeof window !== 'undefined' && cleanMid && localStorage.getItem(`completed_contest_${activeTSP._id || activeTSP.id}_${cleanMid}`);
     const isCompletedParticipant = activeTSP.activeParticipants && cleanMid && activeTSP.activeParticipants.some(
