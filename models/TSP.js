@@ -52,6 +52,7 @@ const TSPSchema = new mongoose.Schema(
         name: { type: String, default: '', trim: true },
         registerNo: { type: String, default: '', trim: true },
         email: { type: String, default: '', trim: true },
+        section: { type: String, default: '', trim: true },
         assignedCode: { type: String, default: '', trim: true },
         addedAt: { type: Date, default: Date.now }
       }
@@ -70,6 +71,10 @@ const TSPSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+if (mongoose.models.TSP && !mongoose.models.TSP.schema.path('whitelistedStudents.section')) {
+  delete mongoose.models.TSP;
+}
 
 export default mongoose.models.TSP || mongoose.model('TSP', TSPSchema);
 

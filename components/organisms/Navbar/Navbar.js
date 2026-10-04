@@ -117,7 +117,7 @@ export default function Navbar() {
             )}
 
             <img 
-              src="/ds logo.jpg" 
+              src="/ds-logo.jpg" 
               alt="Data Science Club" 
               className={styles.dsLogo} 
               onClick={handleLogoClick}
@@ -128,7 +128,7 @@ export default function Navbar() {
 
           <div className={styles.mobileActions}>
             <img 
-              src="/ds logo.jpg" 
+              src="/ds-logo.jpg" 
               alt="Data Science Club" 
               className={styles.dsLogo} 
               onClick={handleLogoClick}

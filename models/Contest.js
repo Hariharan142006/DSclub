@@ -102,6 +102,7 @@ const ContestSchema = new mongoose.Schema(
         name: { type: String, default: '', trim: true },
         registerNo: { type: String, default: '', trim: true },
         email: { type: String, default: '', trim: true },
+        section: { type: String, default: '', trim: true },
         addedAt: { type: Date, default: Date.now }
       }
     ],
@@ -118,5 +119,9 @@ const ContestSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+if (mongoose.models.Contest && !mongoose.models.Contest.schema.path('whitelistedStudents.section')) {
+  delete mongoose.models.Contest;
+}
 
 export default mongoose.models.Contest || mongoose.model('Contest', ContestSchema);

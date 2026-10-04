@@ -70,8 +70,8 @@ export const metadata = {
     canonical: 'https://dsc-panimalar-ads.in',
   },
   icons: {
-    icon: '/ds logo.jpg',
-    apple: '/ds logo.jpg',
+    icon: '/ds-logo.jpg',
+    apple: '/ds-logo.jpg',
   },
   category: 'education',
 };
@@ -85,7 +85,7 @@ export default function RootLayout({ children }) {
         <EventsJsonLd />
         <Script
           strategy="afterInteractive"
-          src="https://www.googletagmanager.com/gtag/js?id=G-Q01WQNWKHQ"
+          src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_ID || 'G-Q01WQNWKHQ'}`}
         />
         <Script
           id="google-analytics"
@@ -95,7 +95,7 @@ export default function RootLayout({ children }) {
               window.dataLayer = window.dataLayer || [];
               function gtag(){dataLayer.push(arguments);}
               gtag('js', new Date());
-              gtag('config', 'G-Q01WQNWKHQ', {
+              gtag('config', '${process.env.NEXT_PUBLIC_GA_ID || 'G-Q01WQNWKHQ'}', {
                 page_path: window.location.pathname,
               });
             `,

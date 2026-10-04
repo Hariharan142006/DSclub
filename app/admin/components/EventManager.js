@@ -121,7 +121,7 @@ export default function EventManager() {
       }
     };
 
-    const pecLogo = await loadImgAsBase64('/pec-logo.png');
+    const pecLogo = (await loadImgAsBase64('/pec-crest.png')) || (await loadImgAsBase64('/pec-logo.png'));
     const dsLogo = await loadImgAsBase64('/ds%20logo.jpg');
 
     if (pecLogo) {

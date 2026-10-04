@@ -56,12 +56,13 @@ export default function ContestManager() {
   const [certSendResult, setCertSendResult] = useState(null);
   const [viewingRecipientsContest, setViewingRecipientsContest] = useState(null);
   const [whitelistManualOpen, setWhitelistManualOpen] = useState(false);
-  const [manualWhitelistEntry, setManualWhitelistEntry] = useState({ identifier: '', name: '', email: '' });
+  const [manualWhitelistEntry, setManualWhitelistEntry] = useState({ identifier: '', name: '', email: '', section: '' });
   const [uploadingExcel, setUploadingExcel] = useState(false);
   const [whitelistPreviewData, setWhitelistPreviewData] = useState(null);
   const [showWhitelistPreviewModal, setShowWhitelistPreviewModal] = useState(false);
   const [showWhitelistViewModal, setShowWhitelistViewModal] = useState(false);
   const [whitelistSearchQuery, setWhitelistSearchQuery] = useState('');
+  const [whitelistSectionFilter, setWhitelistSectionFilter] = useState('ALL');
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [showActiveParticipantsModal, setShowActiveParticipantsModal] = useState(false);
   const [activeParticipantSearch, setActiveParticipantSearch] = useState('');
@@ -713,7 +714,8 @@ export default function ContestManager() {
   };
 
   const handleExcelUpload = async (e, contest) => {
-    const file = e.target.files[0];
+    const inputElement = e.target;
+    const file = inputElement?.files?.[0];
     if (!file) return;
     setUploadingExcel(true);
     
@@ -734,22 +736,92 @@ export default function ContestManager() {
           data.forEach(row => {
             // Fuzzy match column names
             let identifier = '';
+            let rollNo = '';
+            let registerNo = '';
             let name = '';
+            let section = '';
             
             for (const [key, value] of Object.entries(row)) {
-              const k = key.toLowerCase().trim();
-              if (k.includes('roll') || k.includes('member id') || k.includes('register number') || k === 'id') {
-                if (!identifier) identifier = String(value).trim().toUpperCase();
+              if (value === undefined || value === null) continue;
+              const rawVal = String(value).trim();
+              if (!rawVal) continue;
+
+              const cleanKey = String(key || '').toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+              const kNoSpace = cleanKey.replace(/\s+/g, '');
+
+              // Check Section
+              if (
+                cleanKey === 'section' ||
+                cleanKey === 'sec' ||
+                kNoSpace === 'section' ||
+                kNoSpace === 'sec' ||
+                cleanKey.startsWith('section') ||
+                cleanKey.startsWith('sec ') ||
+                cleanKey.endsWith(' section') ||
+                cleanKey.endsWith(' sec') ||
+                cleanKey.includes('section') ||
+                cleanKey === 'class' ||
+                cleanKey === 'branch'
+              ) {
+                if (!section) section = rawVal.toUpperCase();
               }
-              if (k.includes('name') || k === 'full name') {
-                if (!name) name = String(value).trim();
+              // Check Roll No
+              else if (
+                cleanKey === 'roll' ||
+                cleanKey === 'roll no' ||
+                cleanKey === 'roll number' ||
+                kNoSpace === 'rollno' ||
+                kNoSpace === 'rollnumber' ||
+                cleanKey.includes('roll')
+              ) {
+                if (!rollNo) rollNo = rawVal.toUpperCase();
+              }
+              // Check Register No
+              else if (
+                cleanKey === 'reg no' ||
+                cleanKey === 'register no' ||
+                cleanKey === 'registration no' ||
+                cleanKey === 'register number' ||
+                cleanKey === 'registration number' ||
+                kNoSpace === 'regno' ||
+                kNoSpace === 'registerno' ||
+                cleanKey.includes('register') ||
+                cleanKey.includes('registration')
+              ) {
+                if (!registerNo) registerNo = rawVal.toUpperCase();
+              }
+              // Check Name
+              else if (
+                cleanKey === 'name' ||
+                cleanKey === 'student name' ||
+                cleanKey === 'candidate name' ||
+                cleanKey === 'full name' ||
+                kNoSpace === 'studentname' ||
+                kNoSpace === 'fullname' ||
+                (cleanKey.includes('name') && !cleanKey.includes('section') && !cleanKey.includes('code'))
+              ) {
+                if (!name) name = rawVal;
+              }
+              // Fallback ID
+              else if (
+                cleanKey === 'id' ||
+                cleanKey === 'member id' ||
+                cleanKey === 'student id' ||
+                kNoSpace === 'memberid'
+              ) {
+                if (!identifier) identifier = rawVal.toUpperCase();
               }
             }
             
-            if (identifier && name) {
-              newStudents.push({ identifier, name });
-            } else if (identifier) {
-              newStudents.push({ identifier, name: 'Unknown Name' });
+            identifier = rollNo || registerNo || identifier;
+            if (identifier) {
+              newStudents.push({ 
+                identifier, 
+                rollNo: rollNo || identifier,
+                registerNo: registerNo || '',
+                name: name || 'Unknown Name', 
+                section: section || '' 
+              });
             }
           });
           
@@ -762,16 +834,18 @@ export default function ContestManager() {
           setWhitelistPreviewData({ newStudents, contest });
           setShowWhitelistPreviewModal(true);
           setUploadingExcel(false);
-          e.target.value = ''; // Reset file input
         } catch (err) {
           alert('Error processing Excel file: ' + err.message);
           setUploadingExcel(false);
+        } finally {
+          if (inputElement) inputElement.value = '';
         }
       };
       reader.readAsBinaryString(file);
     } catch (err) {
       alert('Error loading Excel parser: ' + err.message);
       setUploadingExcel(false);
+      if (inputElement) inputElement.value = '';
     }
   };
 
@@ -801,7 +875,7 @@ export default function ContestManager() {
         });
       };
       
-      const pecLogo = await addImageToPdf('/pec-logo.png');
+      const pecLogo = (await addImageToPdf('/pec-crest.png')) || (await addImageToPdf('/pec-logo.png'));
       const dsLogo = await addImageToPdf('/ds logo.jpg');
       
       if (pecLogo) doc.addImage(pecLogo, 'PNG', 14, 10, 20, 20);
@@ -910,7 +984,7 @@ export default function ContestManager() {
         });
       };
       
-      const pecLogo = await addImageToPdf('/pec-logo.png');
+      const pecLogo = (await addImageToPdf('/pec-crest.png')) || (await addImageToPdf('/pec-logo.png'));
       const dsLogo = await addImageToPdf('/ds logo.jpg');
       
       if (pecLogo) doc.addImage(pecLogo, 'PNG', 14, 10, 20, 20);
@@ -991,9 +1065,42 @@ export default function ContestManager() {
       const currentList = contest.whitelistedStudents || [];
       const combinedList = [...currentList];
       
+      let addedCount = 0;
+      let updatedCount = 0;
+
       newStudents.forEach(stu => {
-        if (!combinedList.some(s => s.identifier.toLowerCase() === stu.identifier.toLowerCase())) {
+        const cleanNewId = (stu.identifier || '').trim().toUpperCase();
+        const cleanNewRoll = (stu.rollNo || '').trim().toUpperCase();
+        const cleanNewReg = (stu.registerNo || '').trim().toUpperCase();
+
+        const existingIdx = combinedList.findIndex(s => {
+          if (!s) return false;
+          const sId = (s.identifier || '').trim().toUpperCase();
+          const sRoll = (s.rollNo || '').trim().toUpperCase();
+          const sReg = (s.registerNo || '').trim().toUpperCase();
+
+          return (
+            (sId && cleanNewId && sId === cleanNewId) ||
+            (sRoll && cleanNewRoll && sRoll === cleanNewRoll) ||
+            (sId && cleanNewRoll && sId === cleanNewRoll) ||
+            (sRoll && cleanNewId && sRoll === cleanNewId) ||
+            (sReg && cleanNewReg && sReg === cleanNewReg)
+          );
+        });
+
+        if (existingIdx >= 0) {
+          combinedList[existingIdx] = {
+            ...combinedList[existingIdx],
+            identifier: stu.identifier || combinedList[existingIdx].identifier,
+            rollNo: stu.rollNo || combinedList[existingIdx].rollNo || combinedList[existingIdx].identifier,
+            registerNo: stu.registerNo || combinedList[existingIdx].registerNo,
+            name: (stu.name && stu.name !== 'Unknown Name') ? stu.name : combinedList[existingIdx].name,
+            section: stu.section || combinedList[existingIdx].section
+          };
+          updatedCount++;
+        } else {
           combinedList.push(stu);
+          addedCount++;
         }
       });
       
@@ -1009,7 +1116,7 @@ export default function ContestManager() {
         if (selectedContestForManage && (selectedContestForManage._id === resData._id || selectedContestForManage.id === resData._id)) {
           setSelectedContestForManage(resData);
         }
-        alert(`Successfully imported ${newStudents.length} students to the whitelist!`);
+        alert(`Successfully imported whitelist! ${addedCount} student(s) added, ${updatedCount} student(s) updated.`);
         setShowWhitelistPreviewModal(false);
         setWhitelistPreviewData(null);
       } else {
@@ -1038,9 +1145,12 @@ export default function ContestManager() {
         return;
       }
       
+      const cleanSection = (manualWhitelistEntry.section || '').trim().toUpperCase();
+      
       const updatedList = [...currentList, { 
         identifier: cleanIdentifier, 
         name: manualWhitelistEntry.name.trim() || 'Manual Entry',
+        section: cleanSection,
         email: manualWhitelistEntry.email ? manualWhitelistEntry.email.trim() : ''
       }];
       
@@ -1057,7 +1167,7 @@ export default function ContestManager() {
           setSelectedContestForManage(data);
         }
         setWhitelistManualOpen(false);
-        setManualWhitelistEntry({ identifier: '', name: '', email: '' });
+        setManualWhitelistEntry({ identifier: '', name: '', email: '', section: '' });
       } else {
         alert('Failed to add student: ' + data.error);
       }
@@ -2617,6 +2727,17 @@ export default function ContestManager() {
                   />
                 </div>
                 <div className={styles.formGroup} style={{ marginTop: '1rem' }}>
+                  <label>Section (Optional)</label>
+                  <input
+                    type="text"
+                    value={manualWhitelistEntry.section || ''}
+                    onChange={(e) => setManualWhitelistEntry({ ...manualWhitelistEntry, section: e.target.value.toUpperCase() })}
+                    placeholder="e.g. A, B, C, or Section A"
+                    className={styles.inputField}
+                    style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none', textTransform: 'uppercase' }}
+                  />
+                </div>
+                <div className={styles.formGroup} style={{ marginTop: '1rem' }}>
                   <label>Email Address</label>
                   <input
                     type="email"
@@ -2666,6 +2787,7 @@ export default function ContestManager() {
                     <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'left' }}>
                       <th style={{ padding: '0.5rem' }}>Roll Number / ID</th>
                       <th style={{ padding: '0.5rem' }}>Name</th>
+                      <th style={{ padding: '0.5rem', color: '#38bdf8' }}>Sec</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2673,6 +2795,7 @@ export default function ContestManager() {
                       <tr key={idx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
                         <td style={{ padding: '0.5rem', fontFamily: 'monospace', color: '#00f0ff' }}>{stu.identifier}</td>
                         <td style={{ padding: '0.5rem' }}>{stu.name}</td>
+                        <td style={{ padding: '0.5rem', fontFamily: 'monospace', color: '#38bdf8' }}>{stu.section || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -2727,7 +2850,7 @@ export default function ContestManager() {
                     <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
                     <input
                       type="text"
-                      placeholder="Search by Roll Number, Name, or Email..."
+                      placeholder="Search by Roll Number, Name, Section, or Email..."
                       value={whitelistSearchQuery}
                       onChange={(e) => setWhitelistSearchQuery(e.target.value)}
                       style={{
@@ -2754,6 +2877,46 @@ export default function ContestManager() {
                       </button>
                     )}
                   </div>
+
+                  {/* Section Filter Dropdown */}
+                  {(() => {
+                    const availableSections = Array.from(
+                      new Set(
+                        (selectedContestForManage?.whitelistedStudents || [])
+                          .map(s => (s.section || '').trim().toUpperCase())
+                          .filter(Boolean)
+                      )
+                    ).sort();
+                    const hasUnassignedSec = (selectedContestForManage?.whitelistedStudents || []).some(s => !(s.section || '').trim());
+
+                    return (
+                      <select
+                        value={whitelistSectionFilter}
+                        onChange={(e) => setWhitelistSectionFilter(e.target.value)}
+                        style={{
+                          padding: '0.7rem 1rem',
+                          borderRadius: '8px',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          color: '#fff',
+                          fontSize: '0.9rem',
+                          outline: 'none',
+                          minWidth: '130px'
+                        }}
+                      >
+                        <option value="ALL" style={{ background: '#0f172a' }}>All Sections</option>
+                        {availableSections.map((sec, idx) => (
+                          <option key={idx} value={sec} style={{ background: '#0f172a' }}>
+                            {sec.toUpperCase().startsWith('SEC') ? sec : `Sec ${sec}`}
+                          </option>
+                        ))}
+                        {hasUnassignedSec && availableSections.length > 0 && (
+                          <option value="NONE" style={{ background: '#0f172a' }}>No Section</option>
+                        )}
+                      </select>
+                    );
+                  })()}
+
                   <button
                     type="button"
                     onClick={() => setWhitelistManualOpen(true)}
@@ -2779,13 +2942,21 @@ export default function ContestManager() {
                 {(() => {
                   const allStudents = selectedContestForManage.whitelistedStudents || [];
                   const query = whitelistSearchQuery.trim().toLowerCase();
-                  const filtered = query
-                    ? allStudents.filter(s =>
-                        (s && s.identifier && s.identifier.toLowerCase().includes(query)) ||
-                        (s && s.name && s.name.toLowerCase().includes(query)) ||
-                        (s && s.email && s.email.toLowerCase().includes(query))
-                      )
-                    : allStudents;
+                  const sFilter = whitelistSectionFilter;
+                  const filtered = allStudents.filter(s => {
+                    const matchQuery = query ? (
+                      (s && s.identifier && s.identifier.toLowerCase().includes(query)) ||
+                      (s && s.name && s.name.toLowerCase().includes(query)) ||
+                      (s && s.section && s.section.toLowerCase().includes(query)) ||
+                      (s && s.email && s.email.toLowerCase().includes(query))
+                    ) : true;
+                    const matchSec = sFilter === 'ALL'
+                      ? true
+                      : sFilter === 'NONE'
+                        ? !(s && s.section && s.section.trim())
+                        : (s && s.section && s.section.trim().toUpperCase() === sFilter);
+                    return matchQuery && matchSec;
+                  });
 
                   if (allStudents.length === 0) {
                     return (
@@ -2802,7 +2973,7 @@ export default function ContestManager() {
                       <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: '#94a3b8' }}>
                         <Search size={36} color="#64748b" style={{ margin: '0 auto 0.75rem auto', display: 'block', opacity: 0.6 }} />
                         <h4 style={{ color: '#cbd5e1', marginBottom: '0.4rem' }}>No Matches Found</h4>
-                        <p style={{ fontSize: '0.85rem', margin: 0 }}>No whitelisted students matching &quot;{whitelistSearchQuery}&quot;.</p>
+                        <p style={{ fontSize: '0.85rem', margin: 0 }}>No whitelisted students matching the selected filter or &quot;{whitelistSearchQuery}&quot;.</p>
                       </div>
                     );
                   }
@@ -2815,6 +2986,7 @@ export default function ContestManager() {
                             <th style={{ padding: '0.75rem 0.6rem 0.75rem 0.85rem', color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase', width: '45px' }}>#</th>
                             <th style={{ padding: '0.75rem 0.75rem', color: '#00f0ff', fontSize: '0.75rem', textTransform: 'uppercase' }}>Roll No / ID</th>
                             <th style={{ padding: '0.75rem 0.75rem', color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase' }}>Student Name</th>
+                            <th style={{ padding: '0.75rem 0.75rem', color: '#38bdf8', fontSize: '0.75rem', textTransform: 'uppercase' }}>Section</th>
                             <th style={{ padding: '0.75rem 0.75rem', color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase' }}>Email</th>
                             <th style={{ padding: '0.75rem 0.85rem', color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase', textAlign: 'right', width: '60px' }}>Action</th>
                           </tr>
@@ -2834,6 +3006,15 @@ export default function ContestManager() {
                                 </span>
                               </td>
                               <td style={{ padding: '0.65rem 0.75rem', fontWeight: 600, color: '#f1f5f9' }}>{stu.name || '—'}</td>
+                              <td style={{ padding: '0.65rem 0.75rem' }}>
+                                {stu.section ? (
+                                  <span style={{ fontFamily: 'monospace', color: '#38bdf8', background: 'rgba(56, 189, 248, 0.1)', padding: '0.2rem 0.5rem', borderRadius: '6px', border: '1px solid rgba(56, 189, 248, 0.2)', fontSize: '0.82rem', fontWeight: 600 }}>
+                                    {stu.section}
+                                  </span>
+                                ) : (
+                                  <span style={{ color: '#64748b', fontSize: '0.82rem' }}>—</span>
+                                )}
+                              </td>
                               <td style={{ padding: '0.65rem 0.75rem', color: '#94a3b8', fontSize: '0.82rem' }}>{stu.email || '—'}</td>
                               <td style={{ padding: '0.65rem 0.85rem', textAlign: 'right' }}>
                                 <button
@@ -2861,13 +3042,21 @@ export default function ContestManager() {
                   {(() => {
                     const allStudents = selectedContestForManage.whitelistedStudents || [];
                     const query = whitelistSearchQuery.trim().toLowerCase();
-                    const filtered = query
-                      ? allStudents.filter(s =>
-                          (s && s.identifier && s.identifier.toLowerCase().includes(query)) ||
-                          (s && s.name && s.name.toLowerCase().includes(query)) ||
-                          (s && s.email && s.email.toLowerCase().includes(query))
-                        )
-                      : allStudents;
+                    const sFilter = whitelistSectionFilter;
+                    const filtered = allStudents.filter(s => {
+                      const matchQuery = query ? (
+                        (s && s.identifier && s.identifier.toLowerCase().includes(query)) ||
+                        (s && s.name && s.name.toLowerCase().includes(query)) ||
+                        (s && s.section && s.section.toLowerCase().includes(query)) ||
+                        (s && s.email && s.email.toLowerCase().includes(query))
+                      ) : true;
+                      const matchSec = sFilter === 'ALL'
+                        ? true
+                        : sFilter === 'NONE'
+                          ? !(s && s.section && s.section.trim())
+                          : (s && s.section && s.section.trim().toUpperCase() === sFilter);
+                      return matchQuery && matchSec;
+                    });
                     return `Showing ${filtered.length} of ${allStudents.length} student${allStudents.length === 1 ? '' : 's'}`;
                   })()}
                 </span>

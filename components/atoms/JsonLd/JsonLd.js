@@ -12,7 +12,7 @@ export default function JsonLd() {
     ],
     slogan: 'The Top Club in Panimalar and Best Club in Panimalar Engineering College',
     url: 'https://dsc-panimalar-ads.in',
-    logo: 'https://dsc-panimalar-ads.in/ds logo.jpg',
+    logo: 'https://dsc-panimalar-ads.in/ds-logo.jpg',
     description:
       'The Top Club in Panimalar and Best Club in Panimalar Engineering College — The official Data Science Club of the Department of AI & Data Science at Panimalar Engineering College, Chennai. Turning curiosity into data-driven innovation through hackathons, workshops, and coding challenges.',
     foundingDate: '2021-03-18',

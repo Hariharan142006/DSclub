@@ -6,8 +6,7 @@ import { Terminal } from 'lucide-react';
 import styles from './Gallery.module.css';
 
 const galleryFiles = [
-  ...Array.from({ length: 32 }, (_, i) => `/Galley/${i + 1}.jpeg`),
-  ...Array.from({ length: 7 }, (_, i) => `/Galley/${i + 33}.jpg`),
+  ...Array.from({ length: 39 }, (_, i) => `https://res.cloudinary.com/k1046cqe/image/upload/f_auto,q_auto/DS_Club_Galley/${i + 1}.jpg`),
   "https://res.cloudinary.com/k1046cqe/image/upload/v1790582686/DS_Club_Events/DATAXSCAPE_2K26.jpg",
   "https://res.cloudinary.com/k1046cqe/image/upload/v1790582685/DS_Club_Events/Data_Visualization_Workshop.jpg",
   "https://res.cloudinary.com/k1046cqe/image/upload/v1790582686/DS_Club_Events/Group_Presentation_Data_Visualization_Exploration.jpg",
@@ -88,6 +87,12 @@ export default function Gallery() {
                   transition={{ duration: 0.3 }}
                   loading="lazy"
                   decoding="async"
+                  onError={(e) => {
+                    if (e.target.dataset.fallback) return;
+                    e.target.dataset.fallback = 'true';
+                    const num = activeIdx + 1;
+                    e.target.src = num <= 32 ? `/Gallery/${num}.jpeg` : `/Gallery/${num}.jpg`;
+                  }}
                 />
               </AnimatePresence>
             </div>
@@ -111,7 +116,19 @@ export default function Gallery() {
                   tabIndex={0}
                   aria-label={`View gallery image ${idx + 1}`}
                 >
-                  <img src={card.front} alt={`DS Club event photo ${idx + 1}`} className={styles.thumbImg} loading="lazy" decoding="async" />
+                  <img 
+                    src={card.front} 
+                    alt={`DS Club event photo ${idx + 1}`} 
+                    className={styles.thumbImg} 
+                    loading="lazy" 
+                    decoding="async" 
+                    onError={(e) => {
+                      if (e.target.dataset.fallback) return;
+                      e.target.dataset.fallback = 'true';
+                      const num = idx + 1;
+                      e.target.src = num <= 32 ? `/Gallery/${num}.jpeg` : `/Gallery/${num}.jpg`;
+                    }}
+                  />
                 </div>
               ))}
             </div>

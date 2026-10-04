@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Code2, HelpCircle, Trophy, ShieldCheck, ShieldAlert, Zap, ArrowRight, CheckCircle2, AlertCircle, RefreshCw, X, Play, Send, Award, Terminal, Cpu, Timer, Lock } from 'lucide-react';
 import styles from './Challenges.module.css';
@@ -58,6 +59,72 @@ export default function ChallengesPage() {
   const [showAntiCheatModal, setShowAntiCheatModal] = useState(false);
   const [contestDifficultyFilter, setContestDifficultyFilter] = useState('all');
   const [rulesAgreed, setRulesAgreed] = useState(false);
+
+  // Fullscreen-Safe In-DOM Modal State
+  const [customModal, setCustomModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    isAlert: false,
+    type: 'default', // 'default' | 'danger' | 'warning' | 'info'
+    onConfirm: null,
+    onCancel: null,
+  });
+
+  const openConfirmModal = ({
+    title,
+    message,
+    confirmText = 'Confirm',
+    cancelText = 'Cancel',
+    type = 'default',
+    onConfirm,
+    onCancel
+  }) => {
+    setCustomModal({
+      isOpen: true,
+      title,
+      message,
+      confirmText,
+      cancelText,
+      isAlert: false,
+      type,
+      onConfirm: () => {
+        setCustomModal(prev => ({ ...prev, isOpen: false }));
+        if (onConfirm) onConfirm();
+      },
+      onCancel: () => {
+        setCustomModal(prev => ({ ...prev, isOpen: false }));
+        if (onCancel) onCancel();
+      }
+    });
+  };
+
+  const openAlertModal = ({
+    title = 'Notice',
+    message,
+    confirmText = 'Got It',
+    type = 'info',
+    onConfirm
+  }) => {
+    setCustomModal({
+      isOpen: true,
+      title,
+      message,
+      confirmText,
+      cancelText: null,
+      isAlert: true,
+      type,
+      onConfirm: () => {
+        setCustomModal(prev => ({ ...prev, isOpen: false }));
+        if (onConfirm) onConfirm();
+      },
+      onCancel: () => {
+        setCustomModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
 
   const [currentTime, setCurrentTime] = useState(Date.now());
   useEffect(() => {
@@ -384,15 +451,23 @@ export default function ChallengesPage() {
     if (!contestToExit) return;
 
     if (!isAuto) {
-      const isConfirmed = window.confirm(
-        `⚠️ WARNING: Exiting the ${contestToExit.isTSP ? 'TSP' : 'contest'} arena is PERMANENT!\n\n` +
-        `Once you exit, your test session will be finalized and submitted as COMPLETED.\n` +
-        `You will NOT be permitted to re-enter this arena under any circumstances.\n\n` +
-        `Are you sure you want to finish and exit now?`
-      );
-      if (!isConfirmed) return;
+      openConfirmModal({
+        title: `Exit ${contestToExit.isTSP ? 'TSP' : 'Contest'} Arena?`,
+        message: `⚠️ WARNING: Exiting the ${contestToExit.isTSP ? 'TSP' : 'contest'} arena is PERMANENT!\n\nOnce you exit, your session will be finalized and submitted as COMPLETED.\nYou will NOT be permitted to re-enter this arena under any circumstances.\n\nAre you sure you want to finish and exit now?`,
+        confirmText: 'Yes, Finalize & Exit',
+        cancelText: 'Stay in Arena',
+        type: 'danger',
+        onConfirm: () => {
+          proceedExitArena(contestToExit, false, customReason);
+        }
+      });
+      return;
     }
 
+    await proceedExitArena(contestToExit, isAuto, customReason);
+  };
+
+  const proceedExitArena = async (contestToExit, isAuto = false, customReason = '') => {
     const cId = (contestToExit._id || contestToExit.id || '').toString();
     const currentMemberId = verifiedMemberRef.current?.memberId || verifiedMember?.memberId || (typeof window !== 'undefined' && sessionStorage.getItem('dsc_verified_member') ? JSON.parse(sessionStorage.getItem('dsc_verified_member')).memberId : null);
     const currentMemberName = verifiedMemberRef.current?.name || verifiedMember?.name || '';
@@ -456,9 +531,17 @@ export default function ChallengesPage() {
     setAntiCheatWarnings(0);
 
     if (customReason) {
-      alert(customReason);
+      openAlertModal({
+        title: 'Arena Session Ended',
+        message: customReason,
+        type: 'info'
+      });
     } else if (!isAuto) {
-      alert(`✅ Your session for "${contestToExit.title || 'the arena'}" has been submitted and marked as completed. You cannot re-enter.`);
+      openAlertModal({
+        title: 'Session Completed',
+        message: `✅ Your session for "${contestToExit.title || 'the arena'}" has been submitted and marked as completed. You cannot re-enter.`,
+        type: 'info'
+      });
     }
   };
 
@@ -1112,58 +1195,78 @@ export default function ChallengesPage() {
         });
       }
     } catch (err) {
-      alert('Error: ' + err.message);
+      openAlertModal({
+        title: 'Submission Error',
+        message: err.message,
+        type: 'danger'
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleSubmitAcceptedCases = async (passedCount, totalCount) => {
+  const handleSubmitAcceptedCases = (passedCount, totalCount) => {
     if (!verifiedMember || !activeChallenge) return;
-    if (!confirm(`Are you sure you want to submit your solution with only the ${passedCount} accepted test case(s) out of ${totalCount}?`)) {
-      return;
-    }
 
-    setSubmitting(true);
-    setSubmissionResult(null);
+    openConfirmModal({
+      title: 'Submit Partial Solution?',
+      message: `Are you sure you want to submit your solution with only the ${passedCount} accepted test case(s) out of ${totalCount}? You will receive proportional points for the accepted test cases.`,
+      confirmText: `Submit (${passedCount}/${totalCount})`,
+      cancelText: 'Keep Editing',
+      type: 'warning',
+      onConfirm: async () => {
+        setSubmitting(true);
+        setSubmissionResult(null);
 
-    try {
-      const res = await fetch('/api/challenges/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          challengeId: activeChallenge._id,
-          memberId: verifiedMember.memberId,
-          type: activeChallenge.type,
-          codeSubmission: codeSubmission || '',
-          quizAnswers: [],
-          contestId: activeContest ? (activeContest._id || activeContest.id) : null,
-          passedTestCases: passedCount,
-          totalTestCases: totalCount,
-        }),
-      });
+        try {
+          const res = await fetch('/api/challenges/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              challengeId: activeChallenge._id,
+              memberId: verifiedMember.memberId,
+              type: activeChallenge.type,
+              codeSubmission: codeSubmission || '',
+              quizAnswers: [],
+              contestId: activeContest ? (activeContest._id || activeContest.id) : null,
+              passedTestCases: passedCount,
+              totalTestCases: totalCount,
+            }),
+          });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Submission failed');
-      }
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.error || 'Submission failed');
+          }
 
-      setSubmissionResult(data);
-      if (activeChallenge && activeChallenge._id) {
-        if (inContestArenaRef.current) {
-          setContestSolvedChallengeIds(prev => Array.from(new Set([...prev, activeChallenge._id])));
+          setSubmissionResult({
+            ...data,
+            isPartial: true,
+            passedTestCases: passedCount,
+            totalTestCases: totalCount,
+          });
+
+          if (activeChallenge && activeChallenge._id) {
+            if (inContestArenaRef.current) {
+              setContestSolvedChallengeIds(prev => Array.from(new Set([...prev, activeChallenge._id])));
+            }
+            setSolvedChallengeIds(prev => {
+              const updated = Array.from(new Set([...prev, activeChallenge._id]));
+              sessionStorage.setItem('dsc_solved_challenges', JSON.stringify(updated));
+              return updated;
+            });
+          }
+        } catch (err) {
+          openAlertModal({
+            title: 'Submission Error',
+            message: err.message,
+            type: 'danger'
+          });
+        } finally {
+          setSubmitting(false);
         }
-        setSolvedChallengeIds(prev => {
-          const updated = Array.from(new Set([...prev, activeChallenge._id]));
-          sessionStorage.setItem('dsc_solved_challenges', JSON.stringify(updated));
-          return updated;
-        });
       }
-    } catch (err) {
-      alert('Error: ' + err.message);
-    } finally {
-      setSubmitting(false);
-    }
+    });
   };
 
   const handleEditorKeyDown = (e) => {
@@ -1245,9 +1348,9 @@ export default function ChallengesPage() {
           <>
             <div className={styles.header}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '0.75rem' }}>
-                <a href="/" style={{ textDecoration: 'none', color: '#cbd5e1', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#1e293b', padding: '0.35rem 0.85rem', borderRadius: '20px', border: '1px solid #334155', fontWeight: 600 }}>
+                <Link href="/" style={{ textDecoration: 'none', color: '#cbd5e1', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#1e293b', padding: '0.35rem 0.85rem', borderRadius: '20px', border: '1px solid #334155', fontWeight: 600 }}>
                   ← Back to Home
-                </a>
+                </Link>
                 <div className={styles.badge}>
                   <Zap size={16} />
                   <span>Official Competition Portal</span>
@@ -1324,7 +1427,7 @@ export default function ChallengesPage() {
                     <ShieldCheck size={28} className={styles.shieldIcon} />
                     <div>
                       <h3 className={styles.verifyTitle}>{(activeContest && activeContest.whitelistEnabled) ? "Enter Your Roll Number or Member ID" : "Enter Your Member ID to Participate"}</h3>
-                      <p className={styles.verifySub}>Don&apos;t have an ID? <a href="/#join" style={{ color: '#00f0ff', textDecoration: 'underline', fontWeight: 'bold' }}>Click here to Join the Club</a> on our Home Page to get yours!</p>
+                      <p className={styles.verifySub}>Don&apos;t have an ID? <Link href="/#join" style={{ color: '#00f0ff', textDecoration: 'underline', fontWeight: 'bold' }}>Click here to Join the Club</Link> on our Home Page to get yours!</p>
                     </div>
                   </div>
 
@@ -1803,10 +1906,10 @@ export default function ChallengesPage() {
               exit={{ scale: 0.95, y: 20 }}
               className={styles.workspaceModal}
               onClick={(e) => e.stopPropagation()}
-              onCopy={(e) => { if (inContestArena) { e.preventDefault(); alert('🛡️ Anti-Cheat: Copy is disabled inside Contest Arenas!'); } }}
-              onCut={(e) => { if (inContestArena) { e.preventDefault(); alert('🛡️ Anti-Cheat: Cut is disabled inside Contest Arenas!'); } }}
-              onPaste={(e) => { if (inContestArena) { e.preventDefault(); alert('🛡️ Anti-Cheat: Paste is disabled inside Contest Arenas!'); } }}
-              onContextMenu={(e) => { if (inContestArena) { e.preventDefault(); alert('🛡️ Anti-Cheat: Right-Click menu is disabled inside Contest Arenas!'); } }}
+              onCopy={(e) => { if (inContestArena) { e.preventDefault(); openAlertModal({ title: 'Anti-Cheat Protected', message: '🛡️ Copying text is disabled inside Contest Arenas!', type: 'warning' }); } }}
+              onCut={(e) => { if (inContestArena) { e.preventDefault(); openAlertModal({ title: 'Anti-Cheat Protected', message: '🛡️ Cutting text is disabled inside Contest Arenas!', type: 'warning' }); } }}
+              onPaste={(e) => { if (inContestArena) { e.preventDefault(); openAlertModal({ title: 'Anti-Cheat Protected', message: '🛡️ Pasting text is disabled inside Contest Arenas!', type: 'warning' }); } }}
+              onContextMenu={(e) => { if (inContestArena) { e.preventDefault(); openAlertModal({ title: 'Anti-Cheat Protected', message: '🛡️ Right-Click menu is disabled inside Contest Arenas!', type: 'warning' }); } }}
             >
               {/* HackerRank Top Navigation Bar */}
               <div className={styles.workspaceHeader}>
@@ -2008,9 +2111,16 @@ export default function ChallengesPage() {
                           </div>
                           <button
                             onClick={() => {
-                              if (confirm('Reset editor to starter template?')) {
-                                setCodeSubmission(starterCodes[selectedLang](activeChallenge.title));
-                              }
+                              openConfirmModal({
+                                title: 'Reset Code Editor?',
+                                message: 'Reset editor to starter template? All of your unsaved progress will be cleared.',
+                                confirmText: 'Reset Code',
+                                cancelText: 'Cancel',
+                                type: 'warning',
+                                onConfirm: () => {
+                                  setCodeSubmission(starterCodes[selectedLang](activeChallenge.title));
+                                }
+                              });
                             }}
                             style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
                             title="Reset Code"
@@ -2052,34 +2162,27 @@ export default function ChallengesPage() {
                       </div>
                       
                       <div className={styles.editorActions}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: '#64748b' }}>
-                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#00ea64', display: 'inline-block' }} />
-                          <span>DS Club Sandboxed Evaluation Environment</span>
+                        <div className={styles.editorEnvStatus}>
+                          <span className={styles.editorEnvDot} />
+                          <span>DS Club Sandbox</span>
                         </div>
-                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div className={styles.editorBtnGroup}>
                           <button
                             onClick={handleCompileAndRun}
                             disabled={compiling}
                             className={styles.testBtn}
                           >
-                            {compiling ? <RefreshCw size={15} className={styles.spinner} /> : <Play size={15} />}
+                            {compiling ? <RefreshCw size={14} className={styles.spinner} /> : <Play size={14} />}
                             {compiling ? 'Running Code...' : 'Run Code'}
                           </button>
                           {compilerOutput?.canSubmitPartial && !(inContestArena ? contestSolvedChallengeIds : solvedChallengeIds).includes(activeChallenge._id) && (
                             <button
                               onClick={() => handleSubmitAcceptedCases(compilerOutput.passedCount, compilerOutput.totalCount)}
                               disabled={submitting}
-                              className={styles.submitBtn}
-                              style={{
-                                background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)',
-                                color: '#0f172a',
-                                fontWeight: 700,
-                                border: 'none',
-                                boxShadow: '0 2px 10px rgba(234, 179, 8, 0.35)'
-                              }}
+                              className={styles.partialSubmitBtn}
                               title={`Submit with ${compilerOutput.passedCount} accepted test case(s)`}
                             >
-                              <CheckCircle2 size={16} color="#0f172a" />
+                              <CheckCircle2 size={14} color="#0f172a" />
                               {submitting ? 'Submitting...' : `Submit Accepted (${compilerOutput.passedCount}/${compilerOutput.totalCount})`}
                             </button>
                           )}
@@ -2089,7 +2192,7 @@ export default function ChallengesPage() {
                             className={styles.submitBtn}
                             style={{ opacity: (inContestArena ? contestSolvedChallengeIds : solvedChallengeIds).includes(activeChallenge._id) ? 0.5 : 1, cursor: (inContestArena ? contestSolvedChallengeIds : solvedChallengeIds).includes(activeChallenge._id) ? 'not-allowed' : 'pointer' }}
                           >
-                            <CheckCircle2 size={16} />
+                            <CheckCircle2 size={14} />
                             {submitting ? 'Submitting...' : (inContestArena ? contestSolvedChallengeIds : solvedChallengeIds).includes(activeChallenge._id) ? 'Already Submitted' : 'Submit Code'}
                           </button>
                         </div>
@@ -2177,22 +2280,8 @@ export default function ChallengesPage() {
                                   <button
                                     onClick={() => handleSubmitAcceptedCases(compilerOutput.passedCount, compilerOutput.totalCount)}
                                     disabled={submitting}
-                                    style={{
-                                      background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)',
-                                      color: '#0f172a',
-                                      fontWeight: 700,
-                                      fontSize: '0.85rem',
-                                      padding: '0.55rem 1.1rem',
-                                      borderRadius: '8px',
-                                      border: 'none',
-                                      cursor: submitting ? 'not-allowed' : 'pointer',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '0.45rem',
-                                      boxShadow: '0 4px 12px rgba(234, 179, 8, 0.25)',
-                                      transition: 'all 0.2s ease',
-                                      whiteSpace: 'nowrap'
-                                    }}
+                                    className={styles.partialSubmitBtn}
+                                    style={{ padding: '0.55rem 1.15rem' }}
                                   >
                                     <CheckCircle2 size={16} color="#0f172a" />
                                     {submitting ? 'Submitting...' : `Submit with Only Accepted Test Cases (${compilerOutput.passedCount}/${compilerOutput.totalCount})`}
@@ -2903,6 +2992,148 @@ export default function ChallengesPage() {
               >
                 Return to Arena (Resume Fullscreen)
               </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Fullscreen-Safe In-DOM Modal */}
+      <AnimatePresence>
+        {customModal.isOpen && (
+          <div
+            key="custom-confirm-modal-overlay"
+            className={styles.modalOverlay}
+            style={{
+              zIndex: 10001,
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(0, 0, 0, 0.78)',
+              backdropFilter: 'blur(10px)',
+              padding: '1.5rem',
+              display: 'flex'
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 15 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              style={{
+                width: '100%',
+                maxWidth: '460px',
+                background: '#0d141e',
+                border: `1px solid ${
+                  customModal.type === 'danger'
+                    ? 'rgba(239, 68, 68, 0.5)'
+                    : customModal.type === 'warning'
+                    ? 'rgba(234, 179, 8, 0.5)'
+                    : 'rgba(56, 189, 248, 0.3)'
+                }`,
+                borderRadius: '16px',
+                padding: '1.75rem',
+                boxShadow: customModal.type === 'danger'
+                  ? '0 20px 40px rgba(239, 68, 68, 0.25), 0 0 0 1px rgba(239, 68, 68, 0.2)'
+                  : customModal.type === 'warning'
+                  ? '0 20px 40px rgba(234, 179, 8, 0.25), 0 0 0 1px rgba(234, 179, 8, 0.2)'
+                  : '0 20px 40px rgba(0, 0, 0, 0.7)',
+                textAlign: 'left'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.25rem' }}>
+                <div
+                  style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    background:
+                      customModal.type === 'danger'
+                        ? 'rgba(239, 68, 68, 0.15)'
+                        : customModal.type === 'warning'
+                        ? 'rgba(234, 179, 8, 0.15)'
+                        : 'rgba(56, 189, 248, 0.15)',
+                    color:
+                      customModal.type === 'danger'
+                        ? '#ef4444'
+                        : customModal.type === 'warning'
+                        ? '#facc15'
+                        : '#38bdf8'
+                  }}
+                >
+                  {customModal.type === 'danger' ? (
+                    <ShieldAlert size={24} />
+                  ) : customModal.type === 'warning' ? (
+                    <AlertCircle size={24} />
+                  ) : (
+                    <CheckCircle2 size={24} />
+                  )}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.3px' }}>
+                    {customModal.title}
+                  </h3>
+                  <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.88rem', color: '#94a3b8', lineHeight: 1.55, whiteSpace: 'pre-line' }}>
+                    {customModal.message}
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
+                {!customModal.isAlert && (
+                  <button
+                    onClick={() => {
+                      if (customModal.onCancel) customModal.onCancel();
+                      else setCustomModal(prev => ({ ...prev, isOpen: false }));
+                    }}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      color: '#cbd5e1',
+                      padding: '0.6rem 1.15rem',
+                      borderRadius: '8px',
+                      fontSize: '0.86rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {customModal.cancelText || 'Cancel'}
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    if (customModal.onConfirm) customModal.onConfirm();
+                    else setCustomModal(prev => ({ ...prev, isOpen: false }));
+                  }}
+                  style={{
+                    background:
+                      customModal.type === 'danger'
+                        ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+                        : customModal.type === 'warning'
+                        ? 'linear-gradient(135deg, #eab308, #ca8a04)'
+                        : 'linear-gradient(135deg, #00ea64, #059669)',
+                    color: customModal.type === 'warning' ? '#0f172a' : '#fff',
+                    border: 'none',
+                    padding: '0.6rem 1.3rem',
+                    borderRadius: '8px',
+                    fontSize: '0.86rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow:
+                      customModal.type === 'danger'
+                        ? '0 4px 14px rgba(239, 68, 68, 0.4)'
+                        : customModal.type === 'warning'
+                        ? '0 4px 14px rgba(234, 179, 8, 0.35)'
+                        : '0 4px 14px rgba(0, 234, 100, 0.35)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {customModal.confirmText || 'Confirm'}
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

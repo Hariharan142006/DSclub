@@ -112,7 +112,7 @@ export default function IDCardModal({ isOpen, onClose, initialMemberId = null })
                     <span className={styles.deptSub} style={{ color: '#cbd5e1' }}>Official Data Science Club Portal</span>
                   </div>
                 </div>
-                <img src="/ds logo.jpg" alt="DS Club" className={styles.dsLogo} />
+                <img src="/ds-logo.jpg" alt="DS Club" className={styles.dsLogo} />
               </div>
 
               <div className={styles.cardBanner}>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Trophy, Plus, Edit2, Trash2, RefreshCw, X, CheckCircle2, Power, Calendar, Clock, Code2, HelpCircle, ShieldAlert, Unlock, FileText, AlertCircle, Loader2, Play, Pause, Square, Eye, Timer, DownloadCloud, UploadCloud, Search, Users } from 'lucide-react';
+import { Trophy, Plus, Edit2, Trash2, RefreshCw, X, CheckCircle2, Power, Calendar, Clock, Code2, HelpCircle, ShieldAlert, Unlock, FileText, AlertCircle, Loader2, Play, Pause, Square, Eye, Timer, DownloadCloud, UploadCloud, Search, Users, ClipboardCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from '../Admin.module.css';
 
@@ -38,13 +38,14 @@ export default function TSPManager() {
     return () => clearInterval(timerInterval);
   }, []);
   const [whitelistManualOpen, setWhitelistManualOpen] = useState(false);
-  const [manualWhitelistEntry, setManualWhitelistEntry] = useState({ rollNo: '', name: '', registerNo: '', email: '', identifier: '' });
+  const [manualWhitelistEntry, setManualWhitelistEntry] = useState({ rollNo: '', name: '', registerNo: '', email: '', identifier: '', section: '', assignedCode: '' });
   const [uploadingExcel, setUploadingExcel] = useState(false);
   const [whitelistPreviewData, setWhitelistPreviewData] = useState(null);
   const [showWhitelistPreviewModal, setShowWhitelistPreviewModal] = useState(false);
   const [showWhitelistViewModal, setShowWhitelistViewModal] = useState(false);
   const [whitelistSearchQuery, setWhitelistSearchQuery] = useState('');
   const [whitelistCodeFilter, setWhitelistCodeFilter] = useState('ALL');
+  const [whitelistSectionFilter, setWhitelistSectionFilter] = useState('ALL');
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [showActiveParticipantsModal, setShowActiveParticipantsModal] = useState(false);
   const [activeParticipantSearch, setActiveParticipantSearch] = useState('');
@@ -63,6 +64,11 @@ export default function TSPManager() {
   const [selectedReportCode, setSelectedReportCode] = useState('');
   const [manualReportCodeInput, setManualReportCodeInput] = useState('');
   const [exportingReportType, setExportingReportType] = useState(null); // 'excel' | 'pdf' | null
+  const [showAttendanceExportModal, setShowAttendanceExportModal] = useState(false);
+  const [attendanceSelectedCode, setAttendanceSelectedCode] = useState('ALL');
+  const [attendanceSelectedSec, setAttendanceSelectedSec] = useState('ALL');
+  const [attendanceWithCode, setAttendanceWithCode] = useState(true);
+  const [downloadingAttendance, setDownloadingAttendance] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -209,12 +215,13 @@ export default function TSPManager() {
         'Roll No / ID': stu.rollNo || stu.identifier || '',
         'Name': stu.name || 'Unknown',
         'Register No': stu.registerNo || '',
+        'Section': stu.section || '',
         'Mail ID': stu.email || '',
         'Assigned Code': stu.assignedCode || 'ANY'
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(rows);
-      worksheet['!cols'] = [{ wch: 6 }, { wch: 20 }, { wch: 25 }, { wch: 20 }, { wch: 25 }, { wch: 15 }];
+      worksheet['!cols'] = [{ wch: 6 }, { wch: 20 }, { wch: 25 }, { wch: 20 }, { wch: 12 }, { wch: 25 }, { wch: 15 }];
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Whitelist');
       const cleanTitle = (tsp.title || 'TSP').replace(/[^a-zA-Z0-9]/g, '_');
@@ -251,13 +258,14 @@ export default function TSPManager() {
         stu.rollNo || stu.identifier || '—',
         stu.name || 'Unknown',
         stu.registerNo || '—',
+        stu.section || '—',
         stu.email || '—',
         stu.assignedCode || 'ANY'
       ]);
 
       autoTable(doc, {
         startY: 35,
-        head: [['#', 'Roll No', 'Name', 'Register No', 'Mail ID', 'Assigned Code']],
+        head: [['#', 'Roll No', 'Name', 'Register No', 'Section', 'Mail ID', 'Assigned Code']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [15, 23, 42], textColor: 255 },
@@ -271,6 +279,375 @@ export default function TSPManager() {
       alert('Failed to export PDF.');
     }
     setGeneratingPdf(false);
+  };
+
+  const getAttendanceStudentList = (tsp, targetCode = 'ALL', targetSection = 'ALL') => {
+    if (!tsp) return [];
+    const whitelisted = tsp.whitelistedStudents || [];
+    const cleanCode = (targetCode || 'ALL').trim().toUpperCase();
+    const cleanSec = (targetSection || 'ALL').trim().toUpperCase();
+
+    // 1. Map all students from whitelistedStudents
+    let candidates = whitelisted.map(s => ({
+      identifier: s.identifier || s.rollNo,
+      rollNo: (s.rollNo || s.identifier || '—').trim().toUpperCase(),
+      name: (s.name || 'Unknown Name').trim(),
+      registerNo: (s.registerNo || '—').trim().toUpperCase(),
+      section: (s.section || '—').trim().toUpperCase(),
+      assignedCode: (s.assignedCode || 'ANY').trim().toUpperCase()
+    }));
+
+    // 2. Also check if activeParticipants contains candidates with this code not in whitelist
+    (tsp.activeParticipants || []).forEach(p => {
+      const pMid = String(p.memberId || '').trim().toUpperCase();
+      if (!pMid) return;
+      const alreadyIn = candidates.some(c => 
+        (c.rollNo && c.rollNo.toUpperCase() === pMid) ||
+        (c.identifier && c.identifier.toUpperCase() === pMid) ||
+        (c.registerNo && c.registerNo.toUpperCase() === pMid)
+      );
+      if (!alreadyIn) {
+        candidates.push({
+          identifier: pMid,
+          rollNo: pMid,
+          name: (p.name || 'Anonymous').trim(),
+          registerNo: '—',
+          section: '—',
+          assignedCode: (p.passcodeUsed || 'ANY').trim().toUpperCase()
+        });
+      }
+    });
+
+    // 3. Filter by Code
+    if (cleanCode !== 'ALL') {
+      candidates = candidates.filter(s => {
+        const sCode = (s.assignedCode || '').trim().toUpperCase();
+        return sCode === cleanCode || (cleanCode === 'ANY' && (!sCode || sCode === 'ANY'));
+      });
+    }
+
+    // 4. Filter by Section
+    if (cleanSec !== 'ALL') {
+      candidates = candidates.filter(s => {
+        const sSec = (s.section || '').trim().toUpperCase();
+        if (cleanSec === 'NONE') return !sSec || sSec === '—';
+        return sSec === cleanSec;
+      });
+    }
+
+    // 5. Sort alphabetically / numerically by Roll Number then Name
+    candidates.sort((a, b) => {
+      const rA = (a.rollNo || '').toString();
+      const rB = (b.rollNo || '').toString();
+      if (rA !== '—' && rB !== '—') {
+        return rA.localeCompare(rB, undefined, { numeric: true });
+      }
+      return (a.name || '').localeCompare(b.name || '');
+    });
+
+    return candidates;
+  };
+
+  const handleExportAttendancePDF = async (tsp, targetCode = 'ALL', targetSection = 'ALL', withCode = true) => {
+    if (!tsp) return;
+    setDownloadingAttendance(true);
+    try {
+      const { jsPDF } = await import('jspdf');
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
+
+      const candidates = getAttendanceStudentList(tsp, withCode ? targetCode : 'ALL', targetSection);
+      if (candidates.length === 0) {
+        alert('No students found matching the selected criteria.');
+        setDownloadingAttendance(false);
+        return;
+      }
+
+      const cleanCode = (targetCode || 'ALL').trim().toUpperCase();
+      const cleanSec = (targetSection || 'ALL').trim().toUpperCase();
+
+      // Portrait orientation (210mm x 297mm)
+      const doc = new jsPDF('portrait');
+
+      const addImageToPdf = async (url, cropCrest = false) => {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const isWide = (img.width / img.height) > 1.5;
+            if (cropCrest || isWide) {
+              const crestW = Math.round(img.width * 0.255);
+              canvas.width = crestW;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, crestW, img.height, 0, 0, crestW, img.height);
+            } else {
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+            }
+            resolve({
+              dataUrl: canvas.toDataURL('image/png'),
+              width: canvas.width,
+              height: canvas.height,
+              aspectRatio: canvas.width / canvas.height,
+            });
+          };
+          img.onerror = () => resolve(null);
+          img.src = url;
+        });
+      };
+
+      const pecImage = (await addImageToPdf('/pec-crest.png')) || (await addImageToPdf('/pec-logo.png', true));
+      if (pecImage) {
+        const logoHeight = 20;
+        const effectiveRatio = Math.min(pecImage.aspectRatio || 0.89, 1.05);
+        const logoWidth = logoHeight * effectiveRatio;
+        doc.addImage(pecImage.dataUrl, 'PNG', 14, 7.5, logoWidth, logoHeight);
+      }
+
+      // Institutional Header
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text("PANIMALAR ENGINEERING COLLEGE", 105, 12, { align: 'center' });
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text("An Autonomous Institution  •  Affiliated to Anna University, Chennai", 105, 16.5, { align: 'center' });
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.setTextColor(0, 114, 255);
+      doc.text("DEPARTMENT OF ARTIFICIAL INTELLIGENCE & DATA SCIENCE", 105, 21, { align: 'center' });
+
+      // Title & Event
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(15, 23, 42);
+      doc.text("ATTENDANCE SHEET", 105, 27.5, { align: 'center' });
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(30, 41, 59);
+      doc.text(`${tsp.title || 'Technical Skill Practice (TSP)'}`, 105, 32, { align: 'center' });
+
+      // Scope metadata line
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      let metaLine = '';
+      if (withCode) {
+        const codeLabel = cleanCode === 'ALL' ? 'All Assigned Codes' : `Assigned Code: ${cleanCode}`;
+        const secLabel = cleanSec === 'ALL' ? '' : `  |  Section: ${cleanSec}`;
+        metaLine = `${codeLabel}${secLabel}  |  Total Students: ${candidates.length}  |  Date: ${new Date().toLocaleDateString('en-GB')}`;
+      } else {
+        const secLabel = cleanSec === 'ALL' ? 'All Sections' : `Section: ${cleanSec}`;
+        metaLine = `General Attendance  |  ${secLabel}  |  Total Students: ${candidates.length}  |  Date: ${new Date().toLocaleDateString('en-GB')}`;
+      }
+      doc.text(metaLine, 105, 36.5, { align: 'center' });
+
+      // Separator line
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.5);
+      doc.line(14, 39, 196, 39);
+
+      let tableColumn = [];
+      let tableRows = [];
+      let columnStyles = {};
+
+      if (withCode) {
+        tableColumn = [
+          "S.No",
+          "Roll Number",
+          "Name",
+          "Register Number",
+          "Section",
+          "Assigned Code",
+          "Signature"
+        ];
+        tableRows = candidates.map((stu, i) => [
+          i + 1,
+          stu.rollNo || '—',
+          stu.name || '—',
+          stu.registerNo || '—',
+          stu.section || '—',
+          stu.assignedCode || '—',
+          ""
+        ]);
+        columnStyles = {
+          0: { cellWidth: 12, halign: 'center' },
+          1: { cellWidth: 30, fontStyle: 'bold', halign: 'center' },
+          2: { cellWidth: 'auto', halign: 'left' },
+          3: { cellWidth: 32, halign: 'center' },
+          4: { cellWidth: 16, halign: 'center', fontStyle: 'bold' },
+          5: { cellWidth: 24, halign: 'center', fontStyle: 'bold' },
+          6: { cellWidth: 30, halign: 'center' }
+        };
+      } else {
+        tableColumn = [
+          "S.No",
+          "Roll Number",
+          "Name",
+          "Register Number",
+          "Section",
+          "Signature"
+        ];
+        tableRows = candidates.map((stu, i) => [
+          i + 1,
+          stu.rollNo || '—',
+          stu.name || '—',
+          stu.registerNo || '—',
+          stu.section || '—',
+          ""
+        ]);
+        columnStyles = {
+          0: { cellWidth: 12, halign: 'center' },
+          1: { cellWidth: 32, fontStyle: 'bold', halign: 'center' },
+          2: { cellWidth: 'auto', halign: 'left' },
+          3: { cellWidth: 34, halign: 'center' },
+          4: { cellWidth: 18, halign: 'center', fontStyle: 'bold' },
+          5: { cellWidth: 36, halign: 'center' }
+        };
+      }
+
+      autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: 42,
+        theme: 'grid',
+        tableWidth: 182,
+        margin: { top: 42, bottom: 26, left: 14, right: 14 },
+        headStyles: {
+          fillColor: [15, 23, 42],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 8.5,
+          halign: 'center',
+          valign: 'middle',
+          cellPadding: { top: 3.5, bottom: 3.5, left: 2, right: 2 }
+        },
+        styles: {
+          fontSize: 8,
+          textColor: [30, 41, 59],
+          valign: 'middle',
+          cellPadding: { top: 3.5, bottom: 3.5, left: 2.5, right: 2.5 },
+          minCellHeight: 9.5,
+          lineColor: [203, 213, 225],
+          lineWidth: 0.2
+        },
+        columnStyles,
+        alternateRowStyles: {
+          fillColor: [248, 250, 252]
+        },
+        didDrawPage: () => {
+          const pageNum = doc.internal.getNumberOfPages();
+          const pageCount = doc.internal.pages.length - 1;
+
+          // Signature footer
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.setTextColor(100, 116, 139);
+
+          doc.text("Signature of Staff In-Charge / Invigilator", 14, 283);
+          doc.text("HOD - Dept of AI & DS", 196, 283, { align: 'right' });
+
+          doc.setFontSize(7.5);
+          doc.text(`Page ${pageNum} of ${pageCount}`, 105, 290, { align: 'center' });
+        }
+      });
+
+      const cleanTitle = (tsp.title || 'TSP').replace(/[^a-zA-Z0-9]/g, '_');
+      const suffix = withCode ? (cleanCode !== 'ALL' ? `_${cleanCode}` : '_WithCode') : '_WithoutCode';
+      const secSuffix = cleanSec !== 'ALL' ? `_Sec_${cleanSec}` : '';
+      doc.save(`${cleanTitle}_Attendance${suffix}${secSuffix}.pdf`);
+    } catch (error) {
+      console.error('Error exporting attendance PDF:', error);
+      alert('Failed to generate attendance sheet PDF: ' + error.message);
+    } finally {
+      setDownloadingAttendance(false);
+    }
+  };
+
+  const handleExportAttendanceExcel = async (tsp, targetCode = 'ALL', targetSection = 'ALL', withCode = true) => {
+    if (!tsp) return;
+    setDownloadingAttendance(true);
+    try {
+      const XLSX = await import('xlsx');
+      const candidates = getAttendanceStudentList(tsp, withCode ? targetCode : 'ALL', targetSection);
+      if (candidates.length === 0) {
+        alert('No students found matching the selected criteria.');
+        setDownloadingAttendance(false);
+        return;
+      }
+
+      const cleanCode = (targetCode || 'ALL').trim().toUpperCase();
+      const cleanSec = (targetSection || 'ALL').trim().toUpperCase();
+
+      let excelRows = [];
+      let colWidths = [];
+
+      if (withCode) {
+        excelRows = candidates.map((stu, i) => ({
+          'S.No': i + 1,
+          'Roll Number': stu.rollNo || '—',
+          'Name': stu.name || '—',
+          'Register Number': stu.registerNo || '—',
+          'Section': stu.section || '—',
+          'Assigned Code': stu.assignedCode || '—',
+          'Signature': '' // Blank signature column
+        }));
+        colWidths = [
+          { wch: 8 },  // S.No
+          { wch: 20 }, // Roll Number
+          { wch: 30 }, // Name
+          { wch: 20 }, // Register Number
+          { wch: 10 }, // Section
+          { wch: 16 }, // Assigned Code
+          { wch: 25 }, // Signature
+        ];
+      } else {
+        excelRows = candidates.map((stu, i) => ({
+          'S.No': i + 1,
+          'Roll Number': stu.rollNo || '—',
+          'Name': stu.name || '—',
+          'Register Number': stu.registerNo || '—',
+          'Section': stu.section || '—',
+          'Signature': '' // Blank signature column
+        }));
+        colWidths = [
+          { wch: 8 },  // S.No
+          { wch: 20 }, // Roll Number
+          { wch: 32 }, // Name
+          { wch: 20 }, // Register Number
+          { wch: 12 }, // Section
+          { wch: 25 }, // Signature
+        ];
+      }
+
+      const worksheet = XLSX.utils.json_to_sheet(excelRows);
+      worksheet['!cols'] = colWidths;
+
+      const workbook = XLSX.utils.book_new();
+      const baseSheetName = withCode 
+        ? (cleanCode !== 'ALL' ? cleanCode : 'Attendance_WithCode') 
+        : (cleanSec !== 'ALL' ? `Sec_${cleanSec}` : 'Attendance_WithoutCode');
+      const sheetName = baseSheetName.substring(0, 31);
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+
+      const cleanTitle = (tsp.title || 'TSP').replace(/[^a-zA-Z0-9]/g, '_');
+      const suffix = withCode ? (cleanCode !== 'ALL' ? `_${cleanCode}` : '_WithCode') : '_WithoutCode';
+      const secSuffix = cleanSec !== 'ALL' ? `_Sec_${cleanSec}` : '';
+      XLSX.writeFile(workbook, `${cleanTitle}_Attendance${suffix}${secSuffix}.xlsx`);
+    } catch (error) {
+      console.error('Error exporting attendance Excel:', error);
+      alert('Failed to generate attendance sheet Excel: ' + error.message);
+    } finally {
+      setDownloadingAttendance(false);
+    }
   };
 
   const handleExportParticipantsExcel = async (tsp, specificCode = null) => {
@@ -291,12 +668,19 @@ export default function TSPManager() {
         const matchedObj = (tsp.accessCodes || []).find(
           c => c.code && c.code.trim().toUpperCase() === (stu.passcodeUsed || '').trim().toUpperCase()
         );
+        const cleanMid = String(stu.memberId || '').trim().toUpperCase();
+        const wl = (tsp.whitelistedStudents || []).find(w => 
+          w && ((w.rollNo && w.rollNo.trim().toUpperCase() === cleanMid) ||
+               (w.identifier && w.identifier.trim().toUpperCase() === cleanMid) ||
+               (w.registerNo && w.registerNo.trim().toUpperCase() === cleanMid))
+        );
         const label = matchedObj ? matchedObj.label : '';
 
         return {
           '#': index + 1,
           'Roll Number / ID': stu.memberId,
           'Student Name': stu.name || 'Anonymous',
+          'Section': wl?.section || '—',
           'Access Code Used': stu.passcodeUsed || (tsp.passcodeEnabled ? 'N/A' : 'Open Arena'),
           'Batch / Label': label || '—',
           'Score (PTS)': stu.score ?? 0,
@@ -311,6 +695,7 @@ export default function TSPManager() {
         { wch: 6 },
         { wch: 20 },
         { wch: 26 },
+        { wch: 12 },
         { wch: 20 },
         { wch: 20 },
         { wch: 14 },
@@ -332,13 +717,14 @@ export default function TSPManager() {
     }
   };
 
-  const handleExportPerformanceReportExcel = async (tsp, scope, targetCode) => {
+  const handleExportPerformanceReportExcel = async (tsp, scope, targetCode, targetSection = 'ALL') => {
     if (!tsp) return;
     setExportingReportType('excel');
     try {
       const XLSX = await import('xlsx');
       const cleanCode = scope === 'CODE' ? (targetCode || '').trim().toUpperCase() : 'ALL';
-      const res = await fetch(`/api/tsp/${tsp._id || tsp.id}/report?passcode=${encodeURIComponent(cleanCode)}&_t=${Date.now()}`);
+      const cleanSec = (targetSection || 'ALL').trim().toUpperCase();
+      const res = await fetch(`/api/tsp/${tsp._id || tsp.id}/report?passcode=${encodeURIComponent(cleanCode)}&section=${encodeURIComponent(cleanSec)}&_t=${Date.now()}`);
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || 'Failed to fetch performance report data');
@@ -347,7 +733,7 @@ export default function TSPManager() {
       const students = data.students || [];
 
       if (students.length === 0) {
-        alert(cleanCode !== 'ALL' ? `No students found for access code "${cleanCode}".` : 'No participant records found to export.');
+        alert(cleanCode !== 'ALL' || cleanSec !== 'ALL' ? `No students found matching current filters.` : 'No participant records found to export.');
         return;
       }
 
@@ -356,6 +742,7 @@ export default function TSPManager() {
         'Name': stu.name || 'Anonymous',
         'Roll Number': stu.rollNo || stu.memberId,
         'Register Number': stu.registerNo || '—',
+        'Sec': stu.section || '—',
         'Score in Easy (out of max)': `${stu.scoreEasy} / ${stu.maxEasy}`,
         'Score in Medium': stu.scoreMedium ?? 0,
         'Number of test cases satisfied in Medium': `${stu.mediumTestCasesPassed} / ${stu.mediumTestCasesTotal}`,
@@ -372,6 +759,7 @@ export default function TSPManager() {
         { wch: 28 }, // Name
         { wch: 18 }, // Roll Number
         { wch: 20 }, // Register Number
+        { wch: 10 }, // Sec
         { wch: 28 }, // Score in Easy (out of max)
         { wch: 18 }, // Score in Medium
         { wch: 40 }, // Number of test cases satisfied in Medium
@@ -383,11 +771,13 @@ export default function TSPManager() {
       ];
 
       const workbook = XLSX.utils.book_new();
-      const sheetName = cleanCode !== 'ALL' ? cleanCode.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 31) : 'Performance_Report';
+      const sheetName = cleanCode !== 'ALL' ? cleanCode.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 31) : cleanSec !== 'ALL' ? `Sec_${cleanSec}` : 'Performance_Report';
       XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
       const cleanTitle = (tsp.title || 'TSP').replace(/[^a-zA-Z0-9]/g, '_');
-      const suffix = cleanCode !== 'ALL' ? `_${cleanCode.replace(/[^a-zA-Z0-9]/g, '_')}` : '_All_Students';
+      const suffixCode = cleanCode !== 'ALL' ? `_${cleanCode.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+      const suffixSec = cleanSec !== 'ALL' ? `_Sec_${cleanSec.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+      const suffix = (suffixCode || suffixSec) ? `${suffixCode}${suffixSec}` : '_All_Students';
       XLSX.writeFile(workbook, `${cleanTitle}${suffix}_Performance_Report.xlsx`);
       setShowReportExportModal(false);
     } catch (err) {
@@ -398,7 +788,7 @@ export default function TSPManager() {
     }
   };
 
-  const handleExportPerformanceReportPDF = async (tsp, scope, targetCode) => {
+  const handleExportPerformanceReportPDF = async (tsp, scope, targetCode, targetSection = 'ALL') => {
     if (!tsp) return;
     setExportingReportType('pdf');
     try {
@@ -407,7 +797,8 @@ export default function TSPManager() {
       const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
 
       const cleanCode = scope === 'CODE' ? (targetCode || '').trim().toUpperCase() : 'ALL';
-      const res = await fetch(`/api/tsp/${tsp._id || tsp.id}/report?passcode=${encodeURIComponent(cleanCode)}&_t=${Date.now()}`);
+      const cleanSec = (targetSection || 'ALL').trim().toUpperCase();
+      const res = await fetch(`/api/tsp/${tsp._id || tsp.id}/report?passcode=${encodeURIComponent(cleanCode)}&section=${encodeURIComponent(cleanSec)}&_t=${Date.now()}`);
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || 'Failed to fetch performance report data');
@@ -416,58 +807,93 @@ export default function TSPManager() {
       const students = data.students || [];
 
       if (students.length === 0) {
-        alert(cleanCode !== 'ALL' ? `No students found for access code "${cleanCode}".` : 'No participant records found to export.');
+        alert(cleanCode !== 'ALL' || cleanSec !== 'ALL' ? `No students found matching current filters.` : 'No participant records found to export.');
         return;
       }
 
       const doc = new jsPDF('landscape');
 
-      const addImageToPdf = async (url) => {
+      const addImageToPdf = async (url, cropCrest = false) => {
         return new Promise((resolve) => {
           const img = new Image();
+          img.crossOrigin = 'anonymous';
           img.onload = () => {
             const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL('image/png'));
+            const isWide = (img.width / img.height) > 1.5;
+            if (cropCrest || isWide) {
+              const crestW = Math.round(img.width * 0.255);
+              canvas.width = crestW;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, crestW, img.height, 0, 0, crestW, img.height);
+            } else {
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+            }
+            resolve({
+              dataUrl: canvas.toDataURL('image/png'),
+              width: canvas.width,
+              height: canvas.height,
+              aspectRatio: canvas.width / canvas.height,
+            });
           };
           img.onerror = () => resolve(null);
           img.src = url;
         });
       };
 
-      const pecLogo = await addImageToPdf('/pec-logo.png');
-      const dsLogo = await addImageToPdf('/ds logo.jpg');
+      const pecImage = (await addImageToPdf('/pec-crest.png')) || (await addImageToPdf('/pec-logo.png', true));
 
-      if (pecLogo) doc.addImage(pecLogo, 'PNG', 14, 8, 20, 20);
-      if (dsLogo) doc.addImage(dsLogo, 'PNG', 263, 8, 20, 20);
+      if (pecImage) {
+        const logoHeight = 22;
+        const effectiveRatio = Math.min(pecImage.aspectRatio || 0.89, 1.05);
+        const logoWidth = logoHeight * effectiveRatio;
+        doc.addImage(pecImage.dataUrl, 'PNG', 14, 7, logoWidth, logoHeight);
+      }
 
-      doc.setFontSize(18);
+      // Institutional Header
       doc.setFont("helvetica", "bold");
-      doc.text(tsp.title, 148, 16, { align: 'center' });
+      doc.setFontSize(15);
+      doc.setTextColor(15, 23, 42);
+      doc.text("PANIMALAR ENGINEERING COLLEGE", 148.5, 11, { align: 'center' });
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text("An Autonomous Institution  •  Affiliated to Anna University, Chennai", 148.5, 16, { align: 'center' });
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.text("DEPARTMENT OF ARTIFICIAL INTELLIGENCE & DATA SCIENCE", 148.5, 21.5, { align: 'center' });
 
       doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Department of AI & Data Science`, 148, 23, { align: 'center' });
-      doc.setFont("helvetica", "bold");
-      doc.text(`Student Performance & Results Report`, 148, 29, { align: 'center' });
+      doc.setTextColor(2, 132, 199);
+      doc.text(`${tsp.title} — Student Performance & Results Report`, 148.5, 27.5, { align: 'center' });
 
+      doc.setDrawColor(203, 213, 225);
       doc.setLineWidth(0.5);
-      doc.line(14, 33, 283, 33);
+      doc.line(14, 32, 283, 32);
 
-      doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.text(`Scope: ${cleanCode === 'ALL' ? 'All Students (Full Attendance)' : `Access Code: ${cleanCode}`}`, 14, 39);
-      doc.text(`Total Candidates: ${students.length}`, 148, 39, { align: 'center' });
-      doc.text(`Generated: ${new Date().toLocaleString()}`, 283, 39, { align: 'right' });
+      doc.setFontSize(8.5);
+      doc.setTextColor(100, 116, 139);
+      const secLabel = cleanSec !== 'ALL' ? (cleanSec === 'NONE' ? 'Section: Unassigned' : `Section: ${cleanSec}`) : '';
+      const scopeLabel = cleanCode === 'ALL'
+        ? `Scope: All Students${secLabel ? ` (${secLabel})` : ''}`
+        : `Scope: Access Code ${cleanCode}${secLabel ? ` (${secLabel})` : ''}`;
+      doc.text(scopeLabel, 14, 37);
+      doc.text(`Total Candidates: ${students.length}`, 148.5, 37, { align: 'center' });
+      doc.text(`Generated: ${new Date().toLocaleString('en-IN')}`, 283, 37, { align: 'right' });
 
       const tableColumn = [
         "S.No",
         "Name",
         "Roll No",
         "Register No",
+        "Sec",
         "Score in Easy (out of)",
         "Score (Med)",
         "Medium Test Cases",
@@ -482,6 +908,7 @@ export default function TSPManager() {
         stu.name || 'Anonymous',
         stu.rollNo || stu.memberId,
         stu.registerNo || '—',
+        stu.section || '—',
         `${stu.scoreEasy} / ${stu.maxEasy}`,
         stu.scoreMedium ?? 0,
         `${stu.mediumTestCasesPassed} / ${stu.mediumTestCasesTotal}`,
@@ -499,17 +926,18 @@ export default function TSPManager() {
         styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
         headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
         columnStyles: {
-          0: { halign: 'center', cellWidth: 12 },
-          1: { halign: 'left', cellWidth: 40 },
-          2: { halign: 'center', cellWidth: 26 },
-          3: { halign: 'center', cellWidth: 28 },
-          4: { halign: 'center', cellWidth: 30 },
-          5: { halign: 'center', cellWidth: 22 },
-          6: { halign: 'center', cellWidth: 28 },
-          7: { halign: 'center', cellWidth: 22 },
-          8: { halign: 'center', cellWidth: 28 },
-          9: { halign: 'center', cellWidth: 16 },
-          10: { halign: 'center', cellWidth: 18 }
+          0: { halign: 'center', cellWidth: 10 },
+          1: { halign: 'left', cellWidth: 36 },
+          2: { halign: 'center', cellWidth: 24 },
+          3: { halign: 'center', cellWidth: 26 },
+          4: { halign: 'center', cellWidth: 14 },
+          5: { halign: 'center', cellWidth: 28 },
+          6: { halign: 'center', cellWidth: 20 },
+          7: { halign: 'center', cellWidth: 28 },
+          8: { halign: 'center', cellWidth: 20 },
+          9: { halign: 'center', cellWidth: 28 },
+          10: { halign: 'center', cellWidth: 16 },
+          11: { halign: 'center', cellWidth: 19 }
         }
       };
 
@@ -527,7 +955,9 @@ export default function TSPManager() {
       }
 
       const cleanTitle = (tsp.title || 'TSP').replace(/[^a-zA-Z0-9]/g, '_');
-      const suffix = cleanCode !== 'ALL' ? `_${cleanCode.replace(/[^a-zA-Z0-9]/g, '_')}` : '_All_Students';
+      const suffixCode = cleanCode !== 'ALL' ? `_${cleanCode.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+      const suffixSec = cleanSec !== 'ALL' ? `_Sec_${cleanSec.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+      const suffix = (suffixCode || suffixSec) ? `${suffixCode}${suffixSec}` : '_All_Students';
       
       const pdfBlob = doc.output('blob');
       const pdfUrl = URL.createObjectURL(pdfBlob);
@@ -556,16 +986,23 @@ export default function TSPManager() {
         return;
       }
 
-      const headers = ['#', 'Roll Number / ID', 'Student Name', 'Access Code Used', 'Batch Label', 'Score (PTS)', 'Status', 'Joined At', 'Completed At'];
+      const headers = ['#', 'Roll Number / ID', 'Student Name', 'Section', 'Access Code Used', 'Batch Label', 'Score (PTS)', 'Status', 'Joined At', 'Completed At'];
       const rows = filtered.map((stu, index) => {
         const matchedObj = (tsp.accessCodes || []).find(
           c => c.code && c.code.trim().toUpperCase() === (stu.passcodeUsed || '').trim().toUpperCase()
+        );
+        const cleanMid = String(stu.memberId || '').trim().toUpperCase();
+        const wl = (tsp.whitelistedStudents || []).find(w => 
+          w && ((w.rollNo && w.rollNo.trim().toUpperCase() === cleanMid) ||
+               (w.identifier && w.identifier.trim().toUpperCase() === cleanMid) ||
+               (w.registerNo && w.registerNo.trim().toUpperCase() === cleanMid))
         );
         const label = matchedObj ? matchedObj.label : '';
         return [
           index + 1,
           `"${(stu.memberId || '').replace(/"/g, '""')}"`,
           `"${(stu.name || '').replace(/"/g, '""')}"`,
+          `"${(wl?.section || '—').replace(/"/g, '""')}"`,
           `"${(stu.passcodeUsed || '').replace(/"/g, '""')}"`,
           `"${(label || '').replace(/"/g, '""')}"`,
           stu.score ?? 0,
@@ -1086,7 +1523,8 @@ export default function TSPManager() {
   };
 
   const handleExcelUpload = async (e, tsp, prefilledBatchCode = null) => {
-    const file = e.target.files[0];
+    const inputElement = e.target;
+    const file = inputElement?.files?.[0];
     if (!file) return;
     
     let batchCode = prefilledBatchCode;
@@ -1118,24 +1556,104 @@ export default function TSPManager() {
             let registerNo = '';
             let name = '';
             let email = '';
-              let assignedCode = batchCode;
+            let section = '';
+            let assignedCode = batchCode;
             
             for (const [key, value] of Object.entries(row)) {
-              const k = key.toLowerCase().trim();
-              if (k.includes('roll') || k.includes('rollno') || k.includes('roll no')) {
-                if (!rollNo) rollNo = String(value).trim().toUpperCase();
+              if (value === undefined || value === null) continue;
+              const rawVal = String(value).trim();
+              if (!rawVal) continue;
+
+              const cleanKey = String(key || '').toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+              const kNoSpace = cleanKey.replace(/\s+/g, '');
+
+              // Check Section (matches section, sec, sec a, class, branch, etc.)
+              if (
+                cleanKey === 'section' ||
+                cleanKey === 'sec' ||
+                kNoSpace === 'section' ||
+                kNoSpace === 'sec' ||
+                cleanKey.startsWith('section') ||
+                cleanKey.startsWith('sec ') ||
+                cleanKey.endsWith(' section') ||
+                cleanKey.endsWith(' sec') ||
+                cleanKey.includes('section') ||
+                cleanKey === 'class' ||
+                cleanKey === 'branch'
+              ) {
+                if (!section) section = rawVal.toUpperCase();
               }
-              if (k.includes('register') || k.includes('regno') || k.includes('reg no') || k.includes('reg_no')) {
-                if (!registerNo) registerNo = String(value).trim().toUpperCase();
+              // Check Roll No
+              else if (
+                cleanKey === 'roll' ||
+                cleanKey === 'roll no' ||
+                cleanKey === 'roll number' ||
+                kNoSpace === 'rollno' ||
+                kNoSpace === 'rollnumber' ||
+                cleanKey.includes('roll')
+              ) {
+                if (!rollNo) rollNo = rawVal.toUpperCase();
               }
-              if (k.includes('member id') || k === 'id') {
-                if (!identifier) identifier = String(value).trim().toUpperCase();
+              // Check Register No
+              else if (
+                cleanKey === 'reg no' ||
+                cleanKey === 'register no' ||
+                cleanKey === 'registration no' ||
+                cleanKey === 'register number' ||
+                cleanKey === 'registration number' ||
+                kNoSpace === 'regno' ||
+                kNoSpace === 'registerno' ||
+                kNoSpace === 'registrationno' ||
+                cleanKey.includes('register') ||
+                cleanKey.includes('registration')
+              ) {
+                if (!registerNo) registerNo = rawVal.toUpperCase();
               }
-              if (k.includes('name') || k === 'full name') {
-                if (!name) name = String(value).trim();
+              // Check Name
+              else if (
+                cleanKey === 'name' ||
+                cleanKey === 'student name' ||
+                cleanKey === 'candidate name' ||
+                cleanKey === 'full name' ||
+                kNoSpace === 'studentname' ||
+                kNoSpace === 'fullname' ||
+                (cleanKey.includes('name') && !cleanKey.includes('section') && !cleanKey.includes('code') && !cleanKey.includes('file'))
+              ) {
+                if (!name) name = rawVal;
               }
-              if (k.includes('email') || k.includes('mail')) {
-                if (!email) email = String(value).trim();
+              // Check Email
+              else if (
+                cleanKey === 'email' ||
+                cleanKey === 'mail' ||
+                cleanKey === 'email id' ||
+                cleanKey === 'mail id' ||
+                kNoSpace === 'emailid' ||
+                kNoSpace === 'mailid' ||
+                cleanKey.includes('email') ||
+                cleanKey.includes('mail')
+              ) {
+                if (!email) email = rawVal;
+              }
+              // Check Assigned Code
+              else if (
+                cleanKey === 'code' ||
+                cleanKey === 'assigned code' ||
+                cleanKey === 'passcode' ||
+                cleanKey === 'batch code' ||
+                cleanKey.includes('assigned code') ||
+                cleanKey.includes('passcode')
+              ) {
+                if (!assignedCode || assignedCode === batchCode) assignedCode = rawVal.toUpperCase();
+              }
+              // Fallback ID / Member ID
+              else if (
+                cleanKey === 'id' ||
+                cleanKey === 'member id' ||
+                cleanKey === 'student id' ||
+                kNoSpace === 'memberid' ||
+                kNoSpace === 'studentid'
+              ) {
+                if (!identifier) identifier = rawVal.toUpperCase();
               }
             }
             
@@ -1147,7 +1665,8 @@ export default function TSPManager() {
                 registerNo: registerNo || '',
                 name: name || 'Unknown Name',
                 email: email || '',
-                  assignedCode: assignedCode || ''
+                section: section || '',
+                assignedCode: assignedCode || ''
               });
             }
           });
@@ -1161,16 +1680,18 @@ export default function TSPManager() {
           setWhitelistPreviewData({ newStudents, tsp });
           setShowWhitelistPreviewModal(true);
           setUploadingExcel(false);
-          e.target.value = ''; // Reset file input
         } catch (err) {
           alert('Error processing Excel file: ' + err.message);
           setUploadingExcel(false);
+        } finally {
+          if (inputElement) inputElement.value = '';
         }
       };
       reader.readAsBinaryString(file);
     } catch (err) {
       alert('Error loading Excel parser: ' + err.message);
       setUploadingExcel(false);
+      if (inputElement) inputElement.value = '';
     }
   };
 
@@ -1184,39 +1705,68 @@ export default function TSPManager() {
       const doc = new jsPDF('landscape'); // Use landscape for detailed report
       
       // Load Logos
-      const addImageToPdf = async (url) => {
+      const addImageToPdf = async (url, cropCrest = false) => {
         return new Promise((resolve) => {
           const img = new Image();
+          img.crossOrigin = 'anonymous';
           img.onload = () => {
             const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL('image/png'));
+            const isWide = (img.width / img.height) > 1.5;
+            if (cropCrest || isWide) {
+              const crestW = Math.round(img.width * 0.255);
+              canvas.width = crestW;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, crestW, img.height, 0, 0, crestW, img.height);
+            } else {
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+            }
+            resolve({
+              dataUrl: canvas.toDataURL('image/png'),
+              width: canvas.width,
+              height: canvas.height,
+              aspectRatio: canvas.width / canvas.height,
+            });
           };
           img.onerror = () => resolve(null);
           img.src = url;
         });
       };
       
-      const pecLogo = await addImageToPdf('/pec-logo.png');
-      const dsLogo = await addImageToPdf('/ds logo.jpg');
+      const pecImage = (await addImageToPdf('/pec-crest.png')) || (await addImageToPdf('/pec-logo.png', true));
       
-      if (pecLogo) doc.addImage(pecLogo, 'PNG', 14, 10, 20, 20);
-      if (dsLogo) doc.addImage(dsLogo, 'PNG', 263, 10, 20, 20);
+      if (pecImage) {
+        const logoHeight = 22;
+        const effectiveRatio = Math.min(pecImage.aspectRatio || 0.89, 1.05);
+        const logoWidth = logoHeight * effectiveRatio;
+        doc.addImage(pecImage.dataUrl, 'PNG', 14, 7, logoWidth, logoHeight);
+      }
       
-      doc.setFontSize(20);
       doc.setFont("helvetica", "bold");
-      doc.text(tsp.title, 148, 20, { align: 'center' });
-      
-      doc.setFontSize(12);
+      doc.setFontSize(15);
+      doc.setTextColor(15, 23, 42);
+      doc.text("PANIMALAR ENGINEERING COLLEGE", 148.5, 11, { align: 'center' });
+
       doc.setFont("helvetica", "normal");
-      doc.text(`Department of AI & Data Science`, 148, 28, { align: 'center' });
-      doc.text(`Detailed Submissions Report`, 148, 34, { align: 'center' });
+      doc.setFontSize(8.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text("An Autonomous Institution  •  Affiliated to Anna University, Chennai", 148.5, 16, { align: 'center' });
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.text("DEPARTMENT OF ARTIFICIAL INTELLIGENCE & DATA SCIENCE", 148.5, 21.5, { align: 'center' });
+
+      doc.setFontSize(11);
+      doc.setTextColor(2, 132, 199);
+      doc.text(`${tsp.title} — Detailed Submissions Report`, 148.5, 27.5, { align: 'center' });
       
+      doc.setDrawColor(203, 213, 225);
       doc.setLineWidth(0.5);
-      doc.line(14, 40, 283, 40);
+      doc.line(14, 32, 283, 32);
       
       // Fetch Detailed Submissions Data
       const res = await fetch(`/api/tsp/${tsp._id || tsp.id}/submissions`);
@@ -1227,13 +1777,20 @@ export default function TSPManager() {
       doc.text(`Total Submissions: ${submissionsData.length}`, 14, 50);
       doc.text(`Active Participants: ${tsp.activeParticipants?.length || 0}`, 148, 50, { align: 'center' });
       
-      const tableColumn = ["#", "Member ID", "Challenge", "Type", "Score", "Total Points", "Submitted At"];
+      const tableColumn = ["#", "Member ID", "Sec", "Challenge", "Type", "Score", "Total Points", "Submitted At"];
       const tableRows = [];
       
       submissionsData.forEach((sub, index) => {
+        const cleanMid = String(sub.memberId || '').trim().toUpperCase();
+        const wl = (tsp.whitelistedStudents || []).find(w => 
+          w && ((w.rollNo && w.rollNo.trim().toUpperCase() === cleanMid) ||
+               (w.identifier && w.identifier.trim().toUpperCase() === cleanMid) ||
+               (w.registerNo && w.registerNo.trim().toUpperCase() === cleanMid))
+        );
         const rowData = [
           index + 1,
           sub.memberId,
+          wl?.section || '—',
           sub.challengeTitle,
           sub.type.toUpperCase(),
           sub.quizScore || 0,
@@ -1284,102 +1841,7 @@ export default function TSPManager() {
   };
 
   const handleDownloadPdfReport = async (tsp) => {
-    setGeneratingPdf(true);
-    try {
-      const { jsPDF } = await import('jspdf');
-      const autoTableModule = await import('jspdf-autotable');
-      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
-      
-      const doc = new jsPDF();
-      
-      // Load Logos
-      const addImageToPdf = async (url) => {
-        return new Promise((resolve) => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL('image/png'));
-          };
-          img.onerror = () => resolve(null);
-          img.src = url;
-        });
-      };
-      
-      const pecLogo = await addImageToPdf('/pec-logo.png');
-      const dsLogo = await addImageToPdf('/ds logo.jpg');
-      
-      if (pecLogo) doc.addImage(pecLogo, 'PNG', 14, 10, 20, 20);
-      if (dsLogo) doc.addImage(dsLogo, 'PNG', 176, 10, 20, 20);
-      
-      doc.setFontSize(20);
-      doc.setFont("helvetica", "bold");
-      doc.text(tsp.title, 105, 20, { align: 'center' });
-      
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Department of AI & Data Science`, 105, 28, { align: 'center' });
-      doc.text(`TSP Report`, 105, 34, { align: 'center' });
-      
-      doc.setLineWidth(0.5);
-      doc.line(14, 40, 196, 40);
-      
-      // Fetch Leaderboard Data
-      const res = await fetch(`/api/tsp/${tsp._id || tsp.id}/leaderboard`);
-      if (!res.ok) throw new Error('Failed to fetch leaderboard');
-      const leaderboardData = await res.json();
-      
-      doc.setFontSize(11);
-      doc.text(`Total Submissions: ${leaderboardData.length}`, 14, 50);
-      doc.text(`Active Participants: ${tsp.activeParticipants?.length || 0}`, 105, 50);
-      
-      const tableColumn = ["Rank", "Member ID", "Name", "Dept/Role", "Score", "Solved"];
-      const tableRows = [];
-      
-      leaderboardData.forEach((row, index) => {
-        const studentData = [
-          index + 1,
-          row.memberId,
-          row.name || 'Unknown',
-          row.department || row.role || 'Member',
-          row.score,
-          `${row.submissionsCount} / ${(tsp.challenges?.length || 0) + (tsp.pools?.reduce((s, p) => s + (Number(p.count) || 0), 0) || 0)}`
-        ];
-        tableRows.push(studentData);
-      });
-      
-      if (typeof doc.autoTable === 'function') {
-        doc.autoTable({
-          head: [tableColumn],
-          body: tableRows,
-          startY: 55,
-          theme: 'grid',
-          styles: { fontSize: 9, cellPadding: 3 },
-          headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' }
-        });
-      } else {
-        autoTable(doc, {
-          head: [tableColumn],
-          body: tableRows,
-          startY: 55,
-          theme: 'grid',
-          styles: { fontSize: 9, cellPadding: 3 },
-          headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' }
-        });
-      }
-      
-      const pdfBlobUrl = doc.output('bloburl');
-      setPdfPreviewUrl(pdfBlobUrl);
-      setGeneratedPdfDocTitle(`${tsp.title.replace(/\s+/g, '_')}_Report.pdf`);
-      setShowPdfPreviewModal(true);
-    } catch (err) {
-      alert('Error generating PDF: ' + err.message);
-    } finally {
-      setGeneratingPdf(false);
-    }
+    return handleExportPerformanceReportPDF(tsp, 'ALL', '');
   };
 
   const handleConfirmWhitelistImport = async () => {
@@ -1390,9 +1852,46 @@ export default function TSPManager() {
       const currentList = tsp.whitelistedStudents || [];
       const combinedList = [...currentList];
       
+      let addedCount = 0;
+      let updatedCount = 0;
+
       newStudents.forEach(stu => {
-        if (!combinedList.some(s => s.identifier.toLowerCase() === stu.identifier.toLowerCase())) {
+        const cleanNewId = (stu.identifier || '').trim().toUpperCase();
+        const cleanNewRoll = (stu.rollNo || '').trim().toUpperCase();
+        const cleanNewReg = (stu.registerNo || '').trim().toUpperCase();
+
+        const existingIdx = combinedList.findIndex(s => {
+          if (!s) return false;
+          const sId = (s.identifier || '').trim().toUpperCase();
+          const sRoll = (s.rollNo || '').trim().toUpperCase();
+          const sReg = (s.registerNo || '').trim().toUpperCase();
+
+          return (
+            (sId && cleanNewId && sId === cleanNewId) ||
+            (sRoll && cleanNewRoll && sRoll === cleanNewRoll) ||
+            (sId && cleanNewRoll && sId === cleanNewRoll) ||
+            (sRoll && cleanNewId && sRoll === cleanNewId) ||
+            (sReg && cleanNewReg && sReg === cleanNewReg)
+          );
+        });
+
+        if (existingIdx >= 0) {
+          // Update existing student with incoming fields (including section)
+          combinedList[existingIdx] = {
+            ...combinedList[existingIdx],
+            identifier: stu.identifier || combinedList[existingIdx].identifier,
+            rollNo: stu.rollNo || combinedList[existingIdx].rollNo || combinedList[existingIdx].identifier,
+            registerNo: stu.registerNo || combinedList[existingIdx].registerNo,
+            name: (stu.name && stu.name !== 'Unknown Name') ? stu.name : combinedList[existingIdx].name,
+            email: stu.email || combinedList[existingIdx].email,
+            section: stu.section || combinedList[existingIdx].section,
+            assignedCode: stu.assignedCode || combinedList[existingIdx].assignedCode
+          };
+          updatedCount++;
+        } else {
+          // Add new student
           combinedList.push(stu);
+          addedCount++;
         }
       });
       
@@ -1408,7 +1907,7 @@ export default function TSPManager() {
         if (selectedTSPForManage && (selectedTSPForManage._id === resData._id || selectedTSPForManage.id === resData._id)) {
           setSelectedTSPForManage(resData);
         }
-        alert(`Successfully imported ${newStudents.length} students to the whitelist!`);
+        alert(`Successfully imported whitelist! ${addedCount} student(s) added, ${updatedCount} student(s) updated.`);
         setShowWhitelistPreviewModal(false);
         setWhitelistPreviewData(null);
       } else {
@@ -1421,10 +1920,85 @@ export default function TSPManager() {
     }
   };
 
+  const handleQuickEditSection = async (tsp, student) => {
+    const currentSec = student.section || '';
+    const newSec = window.prompt(`Enter Section for ${student.name || student.rollNo} (e.g. A, B, C):`, currentSec);
+    if (newSec === null) return;
+    
+    const cleanSec = newSec.trim().toUpperCase();
+    const updatedList = (tsp.whitelistedStudents || []).map(s => {
+      const sId = (s.identifier || s.rollNo || '').trim().toUpperCase();
+      const targetId = (student.identifier || student.rollNo || '').trim().toUpperCase();
+      if (sId === targetId) {
+        return { ...s, section: cleanSec };
+      }
+      return s;
+    });
+
+    try {
+      const res = await fetch(`/api/tsp/${tsp._id || tsp.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ whitelistedStudents: updatedList })
+      });
+      const resData = await res.json();
+      if (res.ok) {
+        setTSPs(prev => prev.map(c => (c && (c._id && c._id.toString() === resData._id.toString()) || (c.id && c.id.toString() === resData._id.toString())) ? resData : c));
+        if (selectedTSPForManage && (selectedTSPForManage._id === resData._id || selectedTSPForManage.id === resData._id)) {
+          setSelectedTSPForManage(resData);
+        }
+      } else {
+        alert('Failed to update section: ' + resData.error);
+      }
+    } catch (err) {
+      alert('Error updating section: ' + err.message);
+    }
+  };
+
+  const handleBulkAssignSection = async (tsp, targetStudents) => {
+    if (!targetStudents || targetStudents.length === 0) {
+      alert('No students to update.');
+      return;
+    }
+    const newSec = window.prompt(`Enter Section to assign to all ${targetStudents.length} selected/filtered student(s) (e.g. A, B, C):`, 'A');
+    if (newSec === null || !newSec.trim()) return;
+    const cleanSec = newSec.trim().toUpperCase();
+
+    const targetIds = new Set(targetStudents.map(s => (s.identifier || s.rollNo || '').trim().toUpperCase()));
+    const updatedList = (tsp.whitelistedStudents || []).map(s => {
+      const sId = (s.identifier || s.rollNo || '').trim().toUpperCase();
+      if (targetIds.has(sId)) {
+        return { ...s, section: cleanSec };
+      }
+      return s;
+    });
+
+    try {
+      const res = await fetch(`/api/tsp/${tsp._id || tsp.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ whitelistedStudents: updatedList })
+      });
+      const resData = await res.json();
+      if (res.ok) {
+        setTSPs(prev => prev.map(c => (c && (c._id && c._id.toString() === resData._id.toString()) || (c.id && c.id.toString() === resData._id.toString())) ? resData : c));
+        if (selectedTSPForManage && (selectedTSPForManage._id === resData._id || selectedTSPForManage.id === resData._id)) {
+          setSelectedTSPForManage(resData);
+        }
+        alert(`Successfully assigned Section ${cleanSec} to ${targetStudents.length} student(s)!`);
+      } else {
+        alert('Failed to update sections: ' + resData.error);
+      }
+    } catch (err) {
+      alert('Error updating sections: ' + err.message);
+    }
+  };
+
   const handleSaveManualWhitelistEntry = async () => {
     const cleanRollNo = (manualWhitelistEntry.rollNo || manualWhitelistEntry.identifier || '').trim().toUpperCase();
     const cleanName = (manualWhitelistEntry.name || '').trim();
     const cleanRegisterNo = (manualWhitelistEntry.registerNo || '').trim().toUpperCase();
+    const cleanSection = (manualWhitelistEntry.section || '').trim().toUpperCase();
     const cleanEmail = (manualWhitelistEntry.email || '').trim();
 
     if (!cleanRollNo) {
@@ -1461,8 +2035,9 @@ export default function TSPManager() {
         rollNo: cleanRollNo,
         name: cleanName,
         registerNo: cleanRegisterNo,
+        section: cleanSection,
         email: cleanEmail,
-          assignedCode: (manualWhitelistEntry.assignedCode || '').trim()
+        assignedCode: (manualWhitelistEntry.assignedCode || '').trim()
       }];
       
       const res = await fetch(`/api/tsp/${tsp._id || tsp.id}`, {
@@ -1478,7 +2053,7 @@ export default function TSPManager() {
           setSelectedTSPForManage(data);
         }
         setWhitelistManualOpen(false);
-        setManualWhitelistEntry({ rollNo: '', name: '', registerNo: '', email: '', identifier: '', assignedCode: '' });
+        setManualWhitelistEntry({ rollNo: '', name: '', registerNo: '', email: '', identifier: '', section: '', assignedCode: '' });
       } else {
         alert('Failed to add student: ' + data.error);
       }
@@ -1666,6 +2241,18 @@ export default function TSPManager() {
               <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
                 <button
                   type="button"
+                  onClick={() => {
+                    setAttendanceWithCode(true);
+                    setAttendanceSelectedCode('ALL');
+                    setAttendanceSelectedSec('ALL');
+                    setShowAttendanceExportModal(true);
+                  }}
+                  style={{ background: 'rgba(56, 189, 248, 0.15)', border: '1px solid #38bdf8', color: '#38bdf8', padding: '0.55rem 0.95rem', borderRadius: '8px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                >
+                  <ClipboardCheck size={14} /> Download Attendance
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleExportParticipantsExcel(selectedTSPForManage, 'ALL')}
                   style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', color: '#10b981', padding: '0.55rem 0.95rem', borderRadius: '8px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                 >
@@ -1735,6 +2322,19 @@ export default function TSPManager() {
                             style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', cursor: 'pointer' }}
                           >
                             Copy
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAttendanceWithCode(true);
+                              setAttendanceSelectedCode(cCode);
+                              setAttendanceSelectedSec('ALL');
+                              setShowAttendanceExportModal(true);
+                            }}
+                            title={`Download attendance sheet for ${cCode}`}
+                            style={{ background: 'rgba(56, 189, 248, 0.15)', border: '1px solid #38bdf8', color: '#38bdf8', padding: '0.4rem 0.65rem', borderRadius: '6px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                          >
+                            <ClipboardCheck size={12} /> Attendance
                           </button>
                           <button
                             type="button"
@@ -2059,25 +2659,35 @@ export default function TSPManager() {
                   onMouseOver={(e) => { if(!exportingReportType) { e.currentTarget.style.background = '#00f0ff'; e.currentTarget.style.color = '#000'; } }}
                   onMouseOut={(e) => { if(!exportingReportType) { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(0, 240, 255, 0.2), rgba(0, 114, 255, 0.2))'; e.currentTarget.style.color = '#00f0ff'; } }}
                 >
-                  <DownloadCloud size={18} /> {exportingReportType ? `Generating ${exportingReportType.toUpperCase()}...` : 'Download Performance Report (Excel & PDF)'}
+                  <DownloadCloud size={18} /> {exportingReportType ? `Generating ${exportingReportType.toUpperCase()}...` : 'Download TSP Report (Code-Based & All)'}
                 </button>
                 <button
-                  onClick={() => handleDownloadPdfReport(selectedTSPForManage)}
-                  disabled={generatingPdf}
-                  style={{ width: '100%', background: 'rgba(236, 72, 153, 0.15)', border: '1px solid #ec4899', color: '#ec4899', fontWeight: 800, padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justify: 'center', gap: '0.5rem', cursor: generatingPdf ? 'not-allowed' : 'pointer', transition: 'all 0.2s', fontSize: '0.9rem', opacity: generatingPdf ? 0.7 : 1 }}
-                  onMouseOver={(e) => { if(!generatingPdf) { e.currentTarget.style.background = '#ec4899'; e.currentTarget.style.color = '#fff'; } }}
-                  onMouseOut={(e) => { if(!generatingPdf) { e.currentTarget.style.background = 'rgba(236, 72, 153, 0.15)'; e.currentTarget.style.color = '#ec4899'; } }}
+                  onClick={() => {
+                    setReportScope('ALL');
+                    setSelectedReportCode('');
+                    setManualReportCodeInput('');
+                    handleExportPerformanceReportPDF(selectedTSPForManage, 'ALL', '');
+                  }}
+                  disabled={exportingReportType !== null}
+                  style={{ width: '100%', background: 'rgba(236, 72, 153, 0.15)', border: '1px solid #ec4899', color: '#ec4899', fontWeight: 800, padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', cursor: exportingReportType !== null ? 'not-allowed' : 'pointer', transition: 'all 0.2s', fontSize: '0.9rem', opacity: exportingReportType !== null ? 0.7 : 1 }}
+                  onMouseOver={(e) => { if(!exportingReportType) { e.currentTarget.style.background = '#ec4899'; e.currentTarget.style.color = '#fff'; } }}
+                  onMouseOut={(e) => { if(!exportingReportType) { e.currentTarget.style.background = 'rgba(236, 72, 153, 0.15)'; e.currentTarget.style.color = '#ec4899'; } }}
                 >
-                  <FileText size={16} /> {generatingPdf ? 'Generating Report...' : 'Download PDF Report'}
+                  <FileText size={16} /> {exportingReportType === 'pdf' ? 'Generating PDF...' : 'Download TSP PDF Report'}
                 </button>
                 <button
-                  onClick={() => handleDownloadDetailedPdfReport(selectedTSPForManage)}
-                  disabled={generatingPdf}
-                  style={{ width: '100%', background: 'rgba(234, 88, 12, 0.15)', border: '1px solid #ea580c', color: '#ea580c', fontWeight: 800, padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justify: 'center', gap: '0.5rem', cursor: generatingPdf ? 'not-allowed' : 'pointer', transition: 'all 0.2s', fontSize: '0.9rem', opacity: generatingPdf ? 0.7 : 1 }}
-                  onMouseOver={(e) => { if(!generatingPdf) { e.currentTarget.style.background = '#ea580c'; e.currentTarget.style.color = '#fff'; } }}
-                  onMouseOut={(e) => { if(!generatingPdf) { e.currentTarget.style.background = 'rgba(234, 88, 12, 0.15)'; e.currentTarget.style.color = '#ea580c'; } }}
+                  onClick={() => {
+                    setAttendanceWithCode(true);
+                    setAttendanceSelectedCode('ALL');
+                    setAttendanceSelectedSec('ALL');
+                    setShowAttendanceExportModal(true);
+                  }}
+                  disabled={downloadingAttendance}
+                  style={{ width: '100%', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.2))', border: '1px solid #10b981', color: '#10b981', fontWeight: 800, padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', cursor: downloadingAttendance ? 'not-allowed' : 'pointer', transition: 'all 0.2s', fontSize: '0.9rem', opacity: downloadingAttendance ? 0.7 : 1 }}
+                  onMouseOver={(e) => { if (!downloadingAttendance) { e.currentTarget.style.background = '#10b981'; e.currentTarget.style.color = '#fff'; } }}
+                  onMouseOut={(e) => { if (!downloadingAttendance) { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.2))'; e.currentTarget.style.color = '#10b981'; } }}
                 >
-                  <DownloadCloud size={16} /> {generatingPdf ? 'Generating PDF...' : 'Detailed Submissions Report (PDF)'}
+                  <ClipboardCheck size={16} /> {downloadingAttendance ? 'Generating Attendance...' : 'Download Attendance Sheet (With / Without Code)'}
                 </button>
                 <button
                   onClick={() => handleOpenEdit(selectedTSPForManage)}
@@ -3006,6 +3616,19 @@ export default function TSPManager() {
                   />
                 </div>
                 <div className={styles.formGroup} style={{ marginTop: '1rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#e2e8f0', fontSize: '0.88rem', marginBottom: '0.4rem', fontWeight: 600 }}>
+                    Section <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={manualWhitelistEntry.section || ''}
+                    onChange={(e) => setManualWhitelistEntry({ ...manualWhitelistEntry, section: e.target.value.toUpperCase() })}
+                    placeholder="e.g. A, B, C, or Section A"
+                    className={styles.inputField}
+                    style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', outline: 'none', textTransform: 'uppercase' }}
+                  />
+                </div>
+                <div className={styles.formGroup} style={{ marginTop: '1rem' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#94a3b8', fontSize: '0.88rem', marginBottom: '0.4rem', fontWeight: 500 }}>
                     Mail ID <span style={{ fontSize: '0.75rem', color: '#64748b' }}>(Optional)</span>
                   </label>
@@ -3084,6 +3707,7 @@ export default function TSPManager() {
                       <th style={{ padding: '0.5rem', color: '#00f0ff' }}>ROLL No</th>
                       <th style={{ padding: '0.5rem' }}>Name</th>
                       <th style={{ padding: '0.5rem', color: '#a78bfa' }}>Register No</th>
+                      <th style={{ padding: '0.5rem', color: '#38bdf8' }}>Sec</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3092,6 +3716,7 @@ export default function TSPManager() {
                         <td style={{ padding: '0.5rem', fontFamily: 'monospace', color: '#00f0ff' }}>{stu.rollNo || stu.identifier}</td>
                         <td style={{ padding: '0.5rem' }}>{stu.name}</td>
                         <td style={{ padding: '0.5rem', fontFamily: 'monospace', color: '#c4b5fd' }}>{stu.registerNo || '—'}</td>
+                        <td style={{ padding: '0.5rem', fontFamily: 'monospace', color: '#38bdf8' }}>{stu.section || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -3121,7 +3746,7 @@ export default function TSPManager() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className={styles.modalContent}
-              style={{ maxWidth: '750px', width: '95%', background: 'linear-gradient(135deg, #0f172a, #1e293b)', border: '1px solid rgba(0, 240, 255, 0.3)', boxShadow: '0 0 30px rgba(0, 240, 255, 0.15)' }}
+              style={{ maxWidth: '840px', width: '95%', background: 'linear-gradient(135deg, #0f172a, #1e293b)', border: '1px solid rgba(0, 240, 255, 0.3)', boxShadow: '0 0 30px rgba(0, 240, 255, 0.15)' }}
               onClick={e => e.stopPropagation()}
             >
               <div className={styles.modalHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '1rem' }}>
@@ -3140,13 +3765,13 @@ export default function TSPManager() {
               </div>
 
               <div className={styles.modalBody} style={{ padding: '1.25rem 0' }}>
-                {/* Search Bar & Quick Add */}
+                {/* Search Bar, Filters & Quick Add */}
                 <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, position: 'relative', minWidth: '220px' }}>
                     <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
                     <input
                       type="text"
-                      placeholder="Search by Roll No, Name, Register No, or Mail ID..."
+                      placeholder="Search by Roll No, Name, Register No, Section, or Mail ID..."
                       value={whitelistSearchQuery}
                       onChange={(e) => setWhitelistSearchQuery(e.target.value)}
                       style={{
@@ -3173,7 +3798,47 @@ export default function TSPManager() {
                       </button>
                     )}
                   </div>
+
+                  {/* Section Filter Dropdown */}
+                  {(() => {
+                    const availableSections = Array.from(
+                      new Set(
+                        (selectedTSPForManage?.whitelistedStudents || [])
+                          .map(s => (s.section || '').trim().toUpperCase())
+                          .filter(Boolean)
+                      )
+                    ).sort();
+                    const hasUnassignedSec = (selectedTSPForManage?.whitelistedStudents || []).some(s => !(s.section || '').trim());
+
+                    return (
+                      <select
+                        value={whitelistSectionFilter}
+                        onChange={(e) => setWhitelistSectionFilter(e.target.value)}
+                        style={{
+                          padding: '0.7rem 1rem',
+                          borderRadius: '8px',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          color: '#fff',
+                          fontSize: '0.9rem',
+                          outline: 'none',
+                          minWidth: '130px'
+                        }}
+                      >
+                        <option value="ALL" style={{ background: '#0f172a' }}>All Sections</option>
+                        {availableSections.map((sec, idx) => (
+                          <option key={idx} value={sec} style={{ background: '#0f172a' }}>
+                            {sec.toUpperCase().startsWith('SEC') ? sec : `Sec ${sec}`}
+                          </option>
+                        ))}
+                        {hasUnassignedSec && availableSections.length > 0 && (
+                          <option value="NONE" style={{ background: '#0f172a' }}>No Section</option>
+                        )}
+                      </select>
+                    );
+                  })()}
                   
+                  {/* Code Filter Dropdown */}
                   <select
                     value={whitelistCodeFilter}
                     onChange={(e) => setWhitelistCodeFilter(e.target.value)}
@@ -3222,6 +3887,71 @@ export default function TSPManager() {
                   >
                     <Plus size={16} /> Add Student
                   </button>
+
+                  {/* Direct Import Excel button in modal */}
+                  <label
+                    style={{
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      border: '1px solid #10b981',
+                      color: '#10b981',
+                      fontWeight: 700,
+                      padding: '0.7rem 1rem',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      fontSize: '0.85rem',
+                      whiteSpace: 'nowrap',
+                      opacity: uploadingExcel ? 0.7 : 1
+                    }}
+                    title="Upload or re-import Excel file with Section column"
+                  >
+                    <DownloadCloud size={16} />
+                    {uploadingExcel ? 'Importing...' : 'Import Excel'}
+                    <input 
+                      type="file" 
+                      accept=".xlsx,.xls,.csv" 
+                      style={{ display: 'none' }} 
+                      onChange={(e) => handleExcelUpload(e, selectedTSPForManage)}
+                      disabled={uploadingExcel}
+                    />
+                  </label>
+
+                  {/* Bulk Set Section Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allStudents = selectedTSPForManage.whitelistedStudents || [];
+                      const query = whitelistSearchQuery.trim().toLowerCase();
+                      const wFilter = whitelistCodeFilter !== 'ALL' ? whitelistCodeFilter : null;
+                      const sFilter = whitelistSectionFilter;
+                      const filtered = allStudents.filter(s => {
+                        const matchQuery = query ? ((s.rollNo || s.identifier || '').toLowerCase().includes(query) || (s.name || '').toLowerCase().includes(query) || (s.registerNo || '').toLowerCase().includes(query) || (s.section || '').toLowerCase().includes(query) || (s.email || '').toLowerCase().includes(query)) : true;
+                        const matchCode = wFilter ? ((s.assignedCode || '').trim().toUpperCase() === wFilter) : true;
+                        const matchSec = sFilter === 'ALL' ? true : sFilter === 'NONE' ? !(s.section || '').trim() : (s.section || '').trim().toUpperCase() === sFilter;
+                        return matchQuery && matchCode && matchSec;
+                      });
+                      handleBulkAssignSection(selectedTSPForManage, filtered);
+                    }}
+                    style={{
+                      background: 'rgba(56, 189, 248, 0.15)',
+                      border: '1px solid #38bdf8',
+                      color: '#38bdf8',
+                      fontWeight: 700,
+                      padding: '0.7rem 1rem',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      fontSize: '0.85rem',
+                      whiteSpace: 'nowrap'
+                    }}
+                    title="Quickly assign Section (e.g. A) to all currently visible students"
+                  >
+                    🏫 Bulk Set Sec
+                  </button>
                 </div>
                 
                 <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', justifyContent: 'flex-end' }}>
@@ -3231,10 +3961,12 @@ export default function TSPManager() {
                       const allStudents = selectedTSPForManage.whitelistedStudents || [];
                       const query = whitelistSearchQuery.trim().toLowerCase();
                       const wFilter = whitelistCodeFilter !== 'ALL' ? whitelistCodeFilter : null;
+                      const sFilter = whitelistSectionFilter;
                       const filtered = allStudents.filter(s => {
-                        const matchQuery = query ? ((s.rollNo || s.identifier || '').toLowerCase().includes(query) || (s.name || '').toLowerCase().includes(query) || (s.registerNo || '').toLowerCase().includes(query) || (s.email || '').toLowerCase().includes(query)) : true;
+                        const matchQuery = query ? ((s.rollNo || s.identifier || '').toLowerCase().includes(query) || (s.name || '').toLowerCase().includes(query) || (s.registerNo || '').toLowerCase().includes(query) || (s.section || '').toLowerCase().includes(query) || (s.email || '').toLowerCase().includes(query)) : true;
                         const matchCode = wFilter ? ((s.assignedCode || '').trim().toUpperCase() === wFilter) : true;
-                        return matchQuery && matchCode;
+                        const matchSec = sFilter === 'ALL' ? true : sFilter === 'NONE' ? !(s.section || '').trim() : (s.section || '').trim().toUpperCase() === sFilter;
+                        return matchQuery && matchCode && matchSec;
                       });
                       handleExportWhitelistPDF(selectedTSPForManage, filtered);
                     }}
@@ -3249,16 +3981,31 @@ export default function TSPManager() {
                       const allStudents = selectedTSPForManage.whitelistedStudents || [];
                       const query = whitelistSearchQuery.trim().toLowerCase();
                       const wFilter = whitelistCodeFilter !== 'ALL' ? whitelistCodeFilter : null;
+                      const sFilter = whitelistSectionFilter;
                       const filtered = allStudents.filter(s => {
-                        const matchQuery = query ? ((s.rollNo || s.identifier || '').toLowerCase().includes(query) || (s.name || '').toLowerCase().includes(query) || (s.registerNo || '').toLowerCase().includes(query) || (s.email || '').toLowerCase().includes(query)) : true;
+                        const matchQuery = query ? ((s.rollNo || s.identifier || '').toLowerCase().includes(query) || (s.name || '').toLowerCase().includes(query) || (s.registerNo || '').toLowerCase().includes(query) || (s.section || '').toLowerCase().includes(query) || (s.email || '').toLowerCase().includes(query)) : true;
                         const matchCode = wFilter ? ((s.assignedCode || '').trim().toUpperCase() === wFilter) : true;
-                        return matchQuery && matchCode;
+                        const matchSec = sFilter === 'ALL' ? true : sFilter === 'NONE' ? !(s.section || '').trim() : (s.section || '').trim().toUpperCase() === sFilter;
+                        return matchQuery && matchCode && matchSec;
                       });
                       handleExportWhitelistExcel(selectedTSPForManage, filtered);
                     }}
                     style={{ padding: '0.55rem 1rem', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid #10b981', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.35rem' }}
                   >
                     <DownloadCloud size={14} /> Excel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAttendanceWithCode(Boolean(whitelistCodeFilter && whitelistCodeFilter !== 'ALL'));
+                      setAttendanceSelectedCode(whitelistCodeFilter);
+                      setAttendanceSelectedSec(whitelistSectionFilter);
+                      setShowAttendanceExportModal(true);
+                    }}
+                    style={{ padding: '0.55rem 1rem', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid #38bdf8', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                    title="Download attendance sheet based on current code & section filters"
+                  >
+                    <ClipboardCheck size={14} /> Attendance
                   </button>
                 </div>
 
@@ -3267,11 +4014,15 @@ export default function TSPManager() {
                   const allStudents = selectedTSPForManage.whitelistedStudents || [];
                   const query = whitelistSearchQuery.trim().toLowerCase();
                   const wFilter = whitelistCodeFilter !== 'ALL' ? whitelistCodeFilter : null;
-                      const filtered = allStudents.filter(s => {
-                        const matchQuery = query ? ((s.rollNo || s.identifier || '').toLowerCase().includes(query) || (s.name || '').toLowerCase().includes(query) || (s.registerNo || '').toLowerCase().includes(query) || (s.email || '').toLowerCase().includes(query)) : true;
-                        const matchCode = wFilter ? ((s.assignedCode || '').trim().toUpperCase() === wFilter) : true;
-                        return matchQuery && matchCode;
-                      });if (allStudents.length === 0) {
+                  const sFilter = whitelistSectionFilter;
+                  const filtered = allStudents.filter(s => {
+                    const matchQuery = query ? ((s.rollNo || s.identifier || '').toLowerCase().includes(query) || (s.name || '').toLowerCase().includes(query) || (s.registerNo || '').toLowerCase().includes(query) || (s.section || '').toLowerCase().includes(query) || (s.email || '').toLowerCase().includes(query)) : true;
+                    const matchCode = wFilter ? ((s.assignedCode || '').trim().toUpperCase() === wFilter) : true;
+                    const matchSec = sFilter === 'ALL' ? true : sFilter === 'NONE' ? !(s.section || '').trim() : (s.section || '').trim().toUpperCase() === sFilter;
+                    return matchQuery && matchCode && matchSec;
+                  });
+
+                  if (allStudents.length === 0) {
                     return (
                       <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: '#94a3b8' }}>
                         <Users size={40} color="#64748b" style={{ margin: '0 auto 0.75rem auto', display: 'block', opacity: 0.6 }} />
@@ -3286,7 +4037,7 @@ export default function TSPManager() {
                       <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: '#94a3b8' }}>
                         <Search size={36} color="#64748b" style={{ margin: '0 auto 0.75rem auto', display: 'block', opacity: 0.6 }} />
                         <h4 style={{ color: '#cbd5e1', marginBottom: '0.4rem' }}>No Matches Found</h4>
-                        <p style={{ fontSize: '0.85rem', margin: 0 }}>No whitelisted students matching &quot;{whitelistSearchQuery}&quot;.</p>
+                        <p style={{ fontSize: '0.85rem', margin: 0 }}>No whitelisted students matching the selected filters or search query.</p>
                       </div>
                     );
                   }
@@ -3300,8 +4051,9 @@ export default function TSPManager() {
                             <th style={{ padding: '0.75rem 0.75rem', color: '#00f0ff', fontSize: '0.75rem', textTransform: 'uppercase' }}>ROLL No</th>
                             <th style={{ padding: '0.75rem 0.75rem', color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase' }}>Name</th>
                             <th style={{ padding: '0.75rem 0.75rem', color: '#a78bfa', fontSize: '0.75rem', textTransform: 'uppercase' }}>Register No</th>
+                            <th style={{ padding: '0.75rem 0.75rem', color: '#38bdf8', fontSize: '0.75rem', textTransform: 'uppercase' }}>Section</th>
                             <th style={{ padding: '0.75rem 0.75rem', color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase' }}>Mail ID</th>
-                              <th style={{ padding: '0.75rem 0.75rem', color: '#f59e0b', fontSize: '0.75rem', textTransform: 'uppercase' }}>Assigned Code</th>
+                            <th style={{ padding: '0.75rem 0.75rem', color: '#f59e0b', fontSize: '0.75rem', textTransform: 'uppercase' }}>Assigned Code</th>
                             <th style={{ padding: '0.75rem 0.85rem', color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase', textAlign: 'right', width: '60px' }}>Action</th>
                           </tr>
                         </thead>
@@ -3329,16 +4081,32 @@ export default function TSPManager() {
                                   <span style={{ color: '#64748b', fontSize: '0.82rem' }}>—</span>
                                 )}
                               </td>
+                              <td 
+                                style={{ padding: '0.65rem 0.75rem', cursor: 'pointer' }}
+                                onClick={() => handleQuickEditSection(selectedTSPForManage, stu)}
+                                title="Click to edit section"
+                              >
+                                {stu.section ? (
+                                  <span style={{ fontFamily: 'monospace', color: '#38bdf8', background: 'rgba(56, 189, 248, 0.1)', padding: '0.2rem 0.5rem', borderRadius: '6px', border: '1px solid rgba(56, 189, 248, 0.25)', fontSize: '0.82rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    {stu.section}
+                                    <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>✏️</span>
+                                  </span>
+                                ) : (
+                                  <span style={{ color: '#64748b', fontSize: '0.82rem', background: 'rgba(255, 255, 255, 0.04)', padding: '0.2rem 0.5rem', borderRadius: '6px', border: '1px dashed rgba(255, 255, 255, 0.15)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    — <span style={{ fontSize: '0.65rem', color: '#38bdf8' }}>+Sec</span>
+                                  </span>
+                                )}
+                              </td>
                               <td style={{ padding: '0.65rem 0.75rem', color: '#94a3b8', fontSize: '0.82rem' }}>{stu.email || '—'}</td>
-                                <td style={{ padding: '0.65rem 0.75rem' }}>
-                                  {stu.assignedCode ? (
-                                    <span style={{ fontFamily: 'monospace', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', padding: '0.2rem 0.5rem', borderRadius: '6px', border: '1px solid rgba(245, 158, 11, 0.2)', fontSize: '0.82rem', fontWeight: 700 }}>
-                                      {stu.assignedCode}
-                                    </span>
-                                  ) : (
-                                    <span style={{ color: '#64748b', fontSize: '0.82rem' }}>ANY</span>
-                                  )}
-                                </td>
+                              <td style={{ padding: '0.65rem 0.75rem' }}>
+                                {stu.assignedCode ? (
+                                  <span style={{ fontFamily: 'monospace', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', padding: '0.2rem 0.5rem', borderRadius: '6px', border: '1px solid rgba(245, 158, 11, 0.2)', fontSize: '0.82rem', fontWeight: 700 }}>
+                                    {stu.assignedCode}
+                                  </span>
+                                ) : (
+                                  <span style={{ color: '#64748b', fontSize: '0.82rem' }}>ANY</span>
+                                )}
+                              </td>
                               <td style={{ padding: '0.65rem 0.85rem', textAlign: 'right' }}>
                                 <button
                                   type="button"
@@ -3366,11 +4134,14 @@ export default function TSPManager() {
                     const allStudents = selectedTSPForManage.whitelistedStudents || [];
                     const query = whitelistSearchQuery.trim().toLowerCase();
                     const wFilter = whitelistCodeFilter !== 'ALL' ? whitelistCodeFilter : null;
-                      const filtered = allStudents.filter(s => {
-                        const matchQuery = query ? ((s.rollNo || s.identifier || '').toLowerCase().includes(query) || (s.name || '').toLowerCase().includes(query) || (s.registerNo || '').toLowerCase().includes(query) || (s.email || '').toLowerCase().includes(query)) : true;
-                        const matchCode = wFilter ? ((s.assignedCode || '').trim().toUpperCase() === wFilter) : true;
-                        return matchQuery && matchCode;
-                      });return `Showing ${filtered.length} of ${allStudents.length} student${allStudents.length === 1 ? '' : 's'}`;
+                    const sFilter = whitelistSectionFilter;
+                    const filtered = allStudents.filter(s => {
+                      const matchQuery = query ? ((s.rollNo || s.identifier || '').toLowerCase().includes(query) || (s.name || '').toLowerCase().includes(query) || (s.registerNo || '').toLowerCase().includes(query) || (s.section || '').toLowerCase().includes(query) || (s.email || '').toLowerCase().includes(query)) : true;
+                      const matchCode = wFilter ? ((s.assignedCode || '').trim().toUpperCase() === wFilter) : true;
+                      const matchSec = sFilter === 'ALL' ? true : sFilter === 'NONE' ? !(s.section || '').trim() : (s.section || '').trim().toUpperCase() === sFilter;
+                      return matchQuery && matchCode && matchSec;
+                    });
+                    return `Showing ${filtered.length} of ${allStudents.length} student${allStudents.length === 1 ? '' : 's'}`;
                   })()}
                 </span>
                 <button
@@ -3561,6 +4332,7 @@ export default function TSPManager() {
                           <th style={{ padding: '0.6rem 0.75rem', width: '40px' }}>#</th>
                           <th style={{ padding: '0.6rem 0.75rem' }}>Roll Number / ID</th>
                           <th style={{ padding: '0.6rem 0.75rem' }}>Student Name</th>
+                          <th style={{ padding: '0.6rem 0.75rem', color: '#38bdf8' }}>Sec</th>
                           <th style={{ padding: '0.6rem 0.75rem' }}>Code & Batch</th>
                           <th style={{ padding: '0.6rem 0.75rem', textAlign: 'center' }}>Score</th>
                           <th style={{ padding: '0.6rem 0.75rem' }}>Status</th>
@@ -3588,6 +4360,12 @@ export default function TSPManager() {
                           const matchedObj = (selectedTSPForManage.accessCodes || []).find(
                             c => c.code && c.code.trim().toUpperCase() === (stu.passcodeUsed || '').trim().toUpperCase()
                           );
+                          const cleanMid = String(stu.memberId || '').trim().toUpperCase();
+                          const wl = (selectedTSPForManage.whitelistedStudents || []).find(w => 
+                            w && ((w.rollNo && w.rollNo.trim().toUpperCase() === cleanMid) ||
+                                 (w.identifier && w.identifier.trim().toUpperCase() === cleanMid) ||
+                                 (w.registerNo && w.registerNo.trim().toUpperCase() === cleanMid))
+                          );
 
                           return (
                             <tr key={idx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', transition: 'background 0.15s' }}>
@@ -3597,6 +4375,15 @@ export default function TSPManager() {
                               </td>
                               <td style={{ padding: '0.6rem 0.75rem', fontWeight: 600, color: '#f8fafc' }}>
                                 {stu.name || 'Anonymous'}
+                              </td>
+                              <td style={{ padding: '0.6rem 0.75rem' }}>
+                                {wl?.section ? (
+                                  <span style={{ fontFamily: 'monospace', color: '#38bdf8', background: 'rgba(56, 189, 248, 0.1)', padding: '0.15rem 0.45rem', borderRadius: '4px', border: '1px solid rgba(56, 189, 248, 0.25)', fontSize: '0.78rem', fontWeight: 600 }}>
+                                    {wl.section}
+                                  </span>
+                                ) : (
+                                  <span style={{ color: '#64748b', fontSize: '0.78rem' }}>—</span>
+                                )}
                               </td>
                               <td style={{ padding: '0.6rem 0.75rem' }}>
                                 {stu.passcodeUsed ? (
@@ -4192,10 +4979,70 @@ export default function TSPManager() {
                   </div>
                 )}
 
+                {/* Section Filter Dropdown */}
+                {(() => {
+                  const availableSections = Array.from(
+                    new Set(
+                      (selectedTSPForManage?.whitelistedStudents || [])
+                        .map(s => (s.section || '').trim().toUpperCase())
+                        .filter(Boolean)
+                    )
+                  ).sort();
+                  const hasUnassignedSec = (selectedTSPForManage?.whitelistedStudents || []).some(s => !(s.section || '').trim());
+
+                  if (availableSections.length === 0) return null;
+
+                  return (
+                    <div style={{ background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: '12px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#38bdf8' }}>
+                          🏫 Filter by Section (Optional):
+                        </label>
+                        {reportSectionFilter !== 'ALL' && (
+                          <button
+                            type="button"
+                            onClick={() => setReportSectionFilter('ALL')}
+                            style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}
+                          >
+                            Reset to All Sections
+                          </button>
+                        )}
+                      </div>
+                      <select
+                        value={reportSectionFilter}
+                        onChange={(e) => setReportSectionFilter(e.target.value)}
+                        style={{
+                          width: '100%',
+                          background: '#0f172a',
+                          border: '1px solid #38bdf8',
+                          color: '#fff',
+                          padding: '0.65rem 0.85rem',
+                          borderRadius: '8px',
+                          fontSize: '0.85rem',
+                          outline: 'none'
+                        }}
+                      >
+                        <option value="ALL">All Sections (Entire Cohort)</option>
+                        {availableSections.map((sec, idx) => (
+                          <option key={idx} value={sec}>
+                            {sec.toUpperCase().startsWith('SEC') ? sec : `Section ${sec}`}
+                          </option>
+                        ))}
+                        {hasUnassignedSec && (
+                          <option value="NONE">Unassigned Section</option>
+                        )}
+                      </select>
+                      <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                        Optionally export only participants from this specific section.
+                      </span>
+                    </div>
+                  );
+                })()}
+
                 {/* Structure Breakdown Preview Note */}
                 <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px dashed rgba(255, 255, 255, 0.15)', borderRadius: '10px', padding: '0.75rem 1rem', fontSize: '0.75rem', color: '#cbd5e1', lineHeight: 1.4 }}>
                   <strong style={{ color: '#00f0ff' }}>📋 Columns included in both Excel & PDF:</strong><br />
-                  S.No • Name • Roll Number • Register Number • Score in Easy (out of max) • Score in Medium • Number of test cases satisfied in Medium • Score in Hard • Number of test cases satisfied in Hard • Total Score • Status
+                  S.No • Name • Roll Number • Register Number • Sec • Score in Easy (out of max) • Score in Medium • Number of test cases satisfied in Medium • Score in Hard • Number of test cases satisfied in Hard • Total Score • Status
                 </div>
               </div>
 
@@ -4230,7 +5077,7 @@ export default function TSPManager() {
                         alert('Please select or enter a valid Access Code first.');
                         return;
                       }
-                      handleExportPerformanceReportExcel(selectedTSPForManage, reportScope, effCode);
+                      handleExportPerformanceReportExcel(selectedTSPForManage, reportScope, effCode, reportSectionFilter);
                     }}
                     style={{
                       background: '#10b981',
@@ -4262,7 +5109,7 @@ export default function TSPManager() {
                         alert('Please select or enter a valid Access Code first.');
                         return;
                       }
-                      handleExportPerformanceReportPDF(selectedTSPForManage, reportScope, effCode);
+                      handleExportPerformanceReportPDF(selectedTSPForManage, reportScope, effCode, reportSectionFilter);
                     }}
                     style={{
                       background: '#ec4899',
@@ -4282,6 +5129,341 @@ export default function TSPManager() {
                   >
                     <FileText size={16} />
                     {exportingReportType === 'pdf' ? 'Generating PDF...' : 'Download PDF (.pdf)'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal for TSP Attendance Sheet Export (Code-Based with Blank Signature) */}
+      <AnimatePresence>
+        {showAttendanceExportModal && selectedTSPForManage && (
+          <div
+            key="modal-attendance-export-overlay"
+            className={styles.modalOverlay}
+            style={{ zIndex: 1100, overflowY: 'auto', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => !downloadingAttendance && setShowAttendanceExportModal(false)}
+          >
+            <motion.div
+              key="modal-attendance-export-card"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className={styles.modalContent}
+              style={{ width: '94%', maxWidth: '620px', maxHeight: '90vh', background: 'linear-gradient(135deg, #0f172a, #1e293b)', border: '1px solid rgba(56, 189, 248, 0.4)', boxShadow: '0 0 30px rgba(56, 189, 248, 0.2)', borderRadius: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className={styles.modalHeader} style={{ flexShrink: 0, borderBottom: '1px solid rgba(255, 255, 255, 0.1)', padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(56, 189, 248, 0.15)', border: '1px solid #38bdf8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8' }}>
+                    <ClipboardCheck size={20} />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#fff', fontWeight: 800 }}>Download Attendance Sheet</h3>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#94a3b8' }}>Printable attendance sheets with or without Assigned Code (with blank signature space)</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={downloadingAttendance}
+                  onClick={() => setShowAttendanceExportModal(false)}
+                  className={styles.closeBtn}
+                  style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className={styles.modalBody} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', overflowY: 'auto', flex: 1 }}>
+                {/* Competition info pill */}
+                <div style={{ background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', padding: '0.85rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Arena Title</div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#00f0ff' }}>{selectedTSPForManage.title}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Total Whitelisted</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 800, color: '#38bdf8' }}>
+                      👥 {(selectedTSPForManage.whitelistedStudents || []).length} Students
+                    </div>
+                  </div>
+                </div>
+
+                {/* Primary Choice: With Code vs Without Code */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  <label style={{ fontSize: '0.88rem', fontWeight: 800, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <HelpCircle size={16} color="#38bdf8" /> Choose Attendance Sheet Format:
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    {/* With Code Option Card */}
+                    <div
+                      onClick={() => setAttendanceWithCode(true)}
+                      style={{
+                        border: attendanceWithCode ? '2px solid #f59e0b' : '1px solid rgba(255, 255, 255, 0.12)',
+                        background: attendanceWithCode ? 'rgba(245, 158, 11, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                        borderRadius: '12px',
+                        padding: '0.9rem 1rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.4rem'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontWeight: 800, color: attendanceWithCode ? '#f59e0b' : '#fff', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          🔑 With Code
+                        </span>
+                        <input
+                          type="radio"
+                          name="attendanceCodeFormat"
+                          checked={attendanceWithCode}
+                          onChange={() => setAttendanceWithCode(true)}
+                          style={{ accentColor: '#f59e0b', cursor: 'pointer' }}
+                        />
+                      </div>
+                      <span style={{ fontSize: '0.75rem', color: '#94a3b8', lineHeight: 1.4 }}>
+                        Includes <strong>Assigned Code</strong> column for code-based verification.
+                      </span>
+                    </div>
+
+                    {/* Without Code Option Card */}
+                    <div
+                      onClick={() => {
+                        setAttendanceWithCode(false);
+                        setAttendanceSelectedCode('ALL');
+                      }}
+                      style={{
+                        border: !attendanceWithCode ? '2px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.12)',
+                        background: !attendanceWithCode ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                        borderRadius: '12px',
+                        padding: '0.9rem 1rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.4rem'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontWeight: 800, color: !attendanceWithCode ? '#38bdf8' : '#fff', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          📄 Without Code
+                        </span>
+                        <input
+                          type="radio"
+                          name="attendanceCodeFormat"
+                          checked={!attendanceWithCode}
+                          onChange={() => {
+                            setAttendanceWithCode(false);
+                            setAttendanceSelectedCode('ALL');
+                          }}
+                          style={{ accentColor: '#38bdf8', cursor: 'pointer' }}
+                        />
+                      </div>
+                      <span style={{ fontSize: '0.75rem', color: '#94a3b8', lineHeight: 1.4 }}>
+                        Standard attendance <strong>without Assigned Code</strong> column.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Scope 1: Code Selection (Only shown when With Code is selected) */}
+                {attendanceWithCode && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#f59e0b' }}>
+                      🔑 Filter by Assigned Code / Batch:
+                    </label>
+                    {(() => {
+                      let availableCodes = [];
+                      if (Array.isArray(selectedTSPForManage.accessCodes) && selectedTSPForManage.accessCodes.length > 0) {
+                        availableCodes = selectedTSPForManage.accessCodes.map(c => c.code.trim().toUpperCase());
+                      } else if (selectedTSPForManage.passcode) {
+                        availableCodes = [selectedTSPForManage.passcode.trim().toUpperCase()];
+                      }
+
+                      // Also extract any codes present in whitelisted students
+                      (selectedTSPForManage.whitelistedStudents || []).forEach(s => {
+                        const c = (s.assignedCode || '').trim().toUpperCase();
+                        if (c && c !== 'ANY' && !availableCodes.includes(c)) {
+                          availableCodes.push(c);
+                        }
+                      });
+
+                      return (
+                        <select
+                          value={attendanceSelectedCode}
+                          onChange={(e) => setAttendanceSelectedCode(e.target.value)}
+                          style={{
+                            width: '100%',
+                            background: '#0f172a',
+                            border: '1px solid #f59e0b',
+                            color: '#fff',
+                            padding: '0.7rem 0.85rem',
+                            borderRadius: '8px',
+                            fontSize: '0.9rem',
+                            outline: 'none'
+                          }}
+                        >
+                          <option value="ALL">All Codes (Full Cohort / All Students)</option>
+                          {availableCodes.map((c, idx) => {
+                            const count = (selectedTSPForManage.whitelistedStudents || []).filter(s => (s.assignedCode || '').trim().toUpperCase() === c).length;
+                            return (
+                              <option key={idx} value={c}>
+                                Code: {c} ({count} student{count === 1 ? '' : 's'})
+                              </option>
+                            );
+                          })}
+                        </select>
+                      );
+                    })()}
+                    <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                      Select a specific batch passcode or choose &quot;All Codes&quot; to export the full roster.
+                    </span>
+                  </div>
+                )}
+
+                {/* Scope 2: Section Filter (Optional - Available in both modes) */}
+                {(() => {
+                  const availableSections = Array.from(
+                    new Set(
+                      (selectedTSPForManage?.whitelistedStudents || [])
+                        .map(s => (s.section || '').trim().toUpperCase())
+                        .filter(Boolean)
+                    )
+                  ).sort();
+                  const hasUnassignedSec = (selectedTSPForManage?.whitelistedStudents || []).some(s => !(s.section || '').trim());
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#38bdf8' }}>
+                        🏫 Filter by Section (Optional):
+                      </label>
+                      <select
+                        value={attendanceSelectedSec}
+                        onChange={(e) => setAttendanceSelectedSec(e.target.value)}
+                        style={{
+                          width: '100%',
+                          background: '#0f172a',
+                          border: '1px solid #38bdf8',
+                          color: '#fff',
+                          padding: '0.7rem 0.85rem',
+                          borderRadius: '8px',
+                          fontSize: '0.9rem',
+                          outline: 'none'
+                        }}
+                      >
+                        <option value="ALL">All Sections (Entire Cohort)</option>
+                        {availableSections.map((sec, idx) => (
+                          <option key={idx} value={sec}>
+                            {sec.toUpperCase().startsWith('SEC') ? sec : `Section ${sec}`}
+                          </option>
+                        ))}
+                        {hasUnassignedSec && (
+                          <option value="NONE">Unassigned Section</option>
+                        )}
+                      </select>
+                    </div>
+                  );
+                })()}
+
+                {/* Live Matching Count Pill */}
+                {(() => {
+                  const matchingCandidates = getAttendanceStudentList(
+                    selectedTSPForManage, 
+                    attendanceWithCode ? attendanceSelectedCode : 'ALL', 
+                    attendanceSelectedSec
+                  );
+                  return (
+                    <div style={{ background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: '10px', padding: '0.8rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.85rem', color: '#cbd5e1' }}>Students Included in Sheet:</span>
+                      <strong style={{ fontSize: '1rem', color: '#38bdf8', fontFamily: 'monospace' }}>
+                        {matchingCandidates.length} Student{matchingCandidates.length === 1 ? '' : 's'}
+                      </strong>
+                    </div>
+                  );
+                })()}
+
+                {/* Required Columns Specification Note */}
+                <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px dashed rgba(255, 255, 255, 0.15)', borderRadius: '10px', padding: '0.85rem 1rem', fontSize: '0.78rem', color: '#cbd5e1', lineHeight: 1.5 }}>
+                  <strong style={{ color: attendanceWithCode ? '#f59e0b' : '#38bdf8' }}>
+                    📋 Columns included ({attendanceWithCode ? '7 columns — With Code' : '6 columns — Without Code'}):
+                  </strong><br />
+                  {attendanceWithCode ? (
+                    <>
+                      <strong>1. S.No</strong> • <strong>2. Roll Number</strong> • <strong>3. Name</strong> • <strong>4. Register Number</strong> • <strong>5. Section</strong> • <strong style={{ color: '#f59e0b' }}>6. Assigned Code</strong> • <strong style={{ color: '#10b981' }}>7. Signature (Blank for physical sign)</strong>
+                    </>
+                  ) : (
+                    <>
+                      <strong>1. S.No</strong> • <strong>2. Roll Number</strong> • <strong>3. Name</strong> • <strong>4. Register Number</strong> • <strong>5. Section</strong> • <strong style={{ color: '#10b981' }}>6. Signature (Blank for physical sign)</strong>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className={styles.modalFooter} style={{ borderTop: '1px solid rgba(255, 255, 255, 0.1)', padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0, 0, 0, 0.2)' }}>
+                <button
+                  type="button"
+                  disabled={downloadingAttendance}
+                  onClick={() => setShowAttendanceExportModal(false)}
+                  style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#cbd5e1', padding: '0.75rem 1.25rem', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}
+                >
+                  Cancel
+                </button>
+
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  {/* Excel Export Button */}
+                  <button
+                    type="button"
+                    disabled={downloadingAttendance}
+                    onClick={() => handleExportAttendanceExcel(selectedTSPForManage, attendanceSelectedCode, attendanceSelectedSec, attendanceWithCode)}
+                    style={{
+                      background: '#10b981',
+                      border: 'none',
+                      color: '#fff',
+                      padding: '0.75rem 1.25rem',
+                      borderRadius: '8px',
+                      fontWeight: 800,
+                      cursor: downloadingAttendance ? 'not-allowed' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      fontSize: '0.85rem',
+                      opacity: downloadingAttendance ? 0.7 : 1,
+                      boxShadow: '0 0 15px rgba(16, 185, 129, 0.3)'
+                    }}
+                  >
+                    <DownloadCloud size={16} />
+                    {downloadingAttendance ? 'Generating...' : `Download Excel (${attendanceWithCode ? 'With Code' : 'Without Code'})`}
+                  </button>
+
+                  {/* PDF Export Button */}
+                  <button
+                    type="button"
+                    disabled={downloadingAttendance}
+                    onClick={() => handleExportAttendancePDF(selectedTSPForManage, attendanceSelectedCode, attendanceSelectedSec, attendanceWithCode)}
+                    style={{
+                      background: '#0284c7',
+                      border: 'none',
+                      color: '#fff',
+                      padding: '0.75rem 1.25rem',
+                      borderRadius: '8px',
+                      fontWeight: 800,
+                      cursor: downloadingAttendance ? 'not-allowed' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      fontSize: '0.85rem',
+                      opacity: downloadingAttendance ? 0.7 : 1,
+                      boxShadow: '0 0 15px rgba(2, 132, 199, 0.3)'
+                    }}
+                  >
+                    <FileText size={16} />
+                    {downloadingAttendance ? 'Generating...' : `Download PDF (${attendanceWithCode ? 'With Code' : 'Without Code'})`}
                   </button>
                 </div>
               </div>

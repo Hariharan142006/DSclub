@@ -310,7 +310,10 @@ export default function Events() {
       }
     };
     fetchEvents();
-    const interval = setInterval(fetchEvents, 15000);
+    // Only poll every 60s and only when tab is visible
+    const interval = setInterval(() => {
+      if (!document.hidden) fetchEvents();
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 
