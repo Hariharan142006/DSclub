@@ -54,6 +54,30 @@ html, body {
   background-size: 30px 30px;
 }
 
+/* Custom Global Dark Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #090e17;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00ea64;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 #090e17;
+}
+
 /* Atmospheric glow as fixed pseudo-element (avoids background-attachment:fixed repaint) */
 body::before {
   content: '';
