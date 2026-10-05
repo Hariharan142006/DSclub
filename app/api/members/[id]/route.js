@@ -21,7 +21,7 @@ export async function PUT(request, context) {
     const updatedMember = await Member.findOneAndUpdate(
       { $or: [{ _id: id }, { memberId: id }] },
       sanitized,
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!updatedMember) {

@@ -76,7 +76,7 @@ export async function PUT(request, { params }) {
       delete body.$pullAll;
     }
 
-    const updated = await Contest.findByIdAndUpdate(id, updatePayload, { new: true });
+    const updated = await Contest.findByIdAndUpdate(id, updatePayload, { returnDocument: 'after' });
     if (!updated) {
       return Response.json({ error: 'Contest not found' }, { status: 404 });
     }

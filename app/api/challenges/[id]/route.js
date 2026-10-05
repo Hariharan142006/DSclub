@@ -24,7 +24,7 @@ export async function PUT(request, context) {
 
     await connectToDatabase();
 
-    const updatedChallenge = await Challenge.findByIdAndUpdate(id, body, { new: true });
+    const updatedChallenge = await Challenge.findByIdAndUpdate(id, body, { returnDocument: 'after' });
     if (!updatedChallenge) {
       return Response.json({ error: 'Challenge not found' }, { status: 404 });
     }

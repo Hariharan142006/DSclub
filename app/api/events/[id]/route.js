@@ -13,7 +13,7 @@ export async function PUT(request, context) {
 
     await connectToDatabase();
 
-    const updatedEvent = await Event.findByIdAndUpdate(id, body, { new: true });
+    const updatedEvent = await Event.findByIdAndUpdate(id, body, { returnDocument: 'after' });
     if (!updatedEvent) {
       return Response.json({ error: 'Event not found' }, { status: 404 });
     }

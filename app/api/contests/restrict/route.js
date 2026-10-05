@@ -26,14 +26,14 @@ export async function POST(request) {
     let updated = await Contest.findByIdAndUpdate(
       contestId,
       { $addToSet: { restrictedMembers: cleanMemberId } },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!updated) {
       updated = await TSP.findByIdAndUpdate(
         contestId,
         { $addToSet: { restrictedMembers: cleanMemberId } },
-        { new: true }
+        { returnDocument: 'after' }
       );
     }
 
@@ -74,7 +74,7 @@ export async function DELETE(request) {
           violations: { memberId: { $regex: new RegExp(`^${cleanMemberId}$`, 'i') } }
         }
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (updated) {
@@ -94,7 +94,7 @@ export async function DELETE(request) {
             violations: { memberId: { $regex: new RegExp(`^${cleanMemberId}$`, 'i') } }
           }
         },
-        { new: true }
+        { returnDocument: 'after' }
       );
 
       if (updated) {

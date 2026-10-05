@@ -80,7 +80,7 @@ export async function PUT(req, { params }) {
       delete data.$pullAll;
     }
     
-    const tsp = await TSP.findByIdAndUpdate(id, updatePayload, { new: true });
+    const tsp = await TSP.findByIdAndUpdate(id, updatePayload, { returnDocument: 'after' });
     return NextResponse.json(tsp);
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -8,7 +8,7 @@ import TSP from '@/models/TSP';
 import TSPSession from '@/models/TSPSession';
 import { safeString, escapeRegex } from '@/lib/apiHelpers';
 
-export async function POST(request) {
+async function processSubmission(request) {
   try {
     const body = await request.json();
     const { challengeId, memberId, type, codeSubmission, quizAnswers, contestId, passedTestCases, totalTestCases } = body;
@@ -231,4 +231,42 @@ export async function POST(request) {
     console.error('Error submitting challenge:', error);
     return Response.json({ error: 'Failed to record submission: ' + error.message }, { status: 500 });
   }
+}
+
+class SubmitQueue {
+  constructor(concurrency) {
+    this.concurrency = concurrency;
+    this.running = 0;
+    this.queue = [];
+  }
+  
+  async add(task) {
+    return new Promise((resolve, reject) => {
+      this.queue.push(async () => {
+        try {
+          const res = await task();
+          resolve(res);
+        } catch (e) {
+          reject(e);
+        }
+      });
+      this.next();
+    });
+  }
+  
+  next() {
+    if (this.running >= this.concurrency || this.queue.length === 0) return;
+    this.running++;
+    const task = this.queue.shift();
+    task().finally(() => {
+      this.running--;
+      this.next();
+    });
+  }
+}
+
+const globalSubmitQueue = new SubmitQueue(15); // Queue allows 15 concurrent submissions
+
+export async function POST(request) {
+  return globalSubmitQueue.add(() => processSubmission(request));
 }

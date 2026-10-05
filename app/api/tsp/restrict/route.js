@@ -23,7 +23,7 @@ export async function POST(request) {
     const updated = await TSP.findByIdAndUpdate(
       tspId,
       { $addToSet: { restrictedMembers: cleanMemberId } },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!updated) {
@@ -62,7 +62,7 @@ export async function DELETE(request) {
           violations: { memberId: { $regex: new RegExp(`^${cleanMemberId}$`, 'i') } }
         }
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     // Reset status in activeParticipants if they were marked restricted or completed

@@ -47,7 +47,7 @@ export async function POST(request) {
       {
         $inc: { 'violations.$.count': 1 }
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     let newCount = 1;
@@ -66,7 +66,7 @@ export async function POST(request) {
         {
           $push: { violations: { memberId: cleanMemberId, count: 1 } }
         },
-        { new: true }
+        { returnDocument: 'after' }
       );
       newCount = 1;
       restrictedMembers = pushed?.restrictedMembers || [];
@@ -80,7 +80,7 @@ export async function POST(request) {
         {
           $addToSet: { restrictedMembers: cleanMemberId }
         },
-        { new: true }
+        { returnDocument: 'after' }
       );
       restrictedMembers = restrictedDoc?.restrictedMembers || [...restrictedMembers, cleanMemberId];
     }

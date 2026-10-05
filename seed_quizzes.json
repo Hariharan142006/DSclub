@@ -1,0 +1,302 @@
+[
+  {
+    "prompt": "1. Which data structure follows the LIFO principle ?",
+    "options": [
+      "Queue",
+      "Stack",
+      "Linked List",
+      "Tree"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "prompt": "2. Which data structure follows the FIFO principle?",
+    "options": [
+      "Stack",
+      "Queue",
+      "Tree",
+      "Graph"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "prompt": "3. What is the time complexity of accessing an element in an array using its index?",
+    "options": [
+      "O(n)",
+      "O(log n)",
+      "O(1)",
+      "O(n\u00b2)"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "prompt": "4. Which of the following is a linear data structure?",
+    "options": [
+      "Tree",
+      "Graph",
+      "Array",
+      "Heap"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "prompt": "5. Which operation is used to add an element to a stack?",
+    "options": [
+      "Pop",
+      "Push",
+      "Insert",
+      "Enqueue"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "prompt": "6. Which operation removes an element from a stack?",
+    "options": [
+      "Push",
+      "Enqueue",
+      "Pop",
+      "Delete"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "prompt": "7. In a queue, insertion of an element is called:",
+    "options": [
+      "Push",
+      "Pop",
+      "Enqueue",
+      "Dequeue"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "prompt": "8. In a queue, deletion of an element is called:",
+    "options": [
+      "Enqueue",
+      "Dequeue",
+      "Push",
+      "Insert"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "prompt": "9. Which data structure uses nodes connected through pointers?",
+    "options": [
+      "Array",
+      "Linked List",
+      "Stack",
+      "Hash Table"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "prompt": "10. What does the last node of a singly linked list usually contain in its next field?",
+    "options": [
+      "Address of first node",
+      "Address of previous node",
+      "NULL",
+      "Zero index"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "prompt": "11. Which linked list allows traversal in both forward and backward directions?",
+    "options": [
+      "Singly linked list",
+      "Circular linked list",
+      "Doubly linked list",
+      "Linear list"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "prompt": "12. Which data structure is commonly used to implement recursion?",
+    "options": [
+      "Queue",
+      "Stack",
+      "Graph",
+      "Heap"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "prompt": "13. What is the maximum number of children a node can have in a binary tree?",
+    "options": [
+      "1",
+      "2",
+      "3",
+      "Unlimited"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "prompt": "14. Which traversal of a Binary Search Tree produces elements in sorted order?",
+    "options": [
+      "Preorder",
+      "Post-order",
+      "In-order",
+      "Level order"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "prompt": "15. Which traversal follows the order Root \u2192 Left \u2192 Right?",
+    "options": [
+      "In-order",
+      "Pre-order",
+      "Post-order",
+      "Level order"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "prompt": "16. Which traversal follows the order Left \u2192 Right \u2192 Root?",
+    "options": [
+      "Preorder",
+      "Inorder",
+      "Postorder",
+      "Level order"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "prompt": "17. In a Binary Search Tree, values in the left subtree are generally:",
+    "options": [
+      "Greater than the root",
+      "Equal to the root only",
+      "Less than the root",
+      "Unrelated to the root"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "prompt": "18. Which data structure is generally used in Breadth-First Search (BFS)?",
+    "options": [
+      "Stack",
+      "Queue",
+      "Heap",
+      "Array"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "prompt": "19. Which data structure is generally used in Depth-First Search (DFS)?",
+    "options": [
+      "Queue",
+      "Stack",
+      "Heap",
+      "Hash Table"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "prompt": "20. Which data structure is used to represent relationships between connected entities?",
+    "options": [
+      "Array",
+      "Stack",
+      "Graph",
+      "Queue"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "prompt": "21. What is the worst-case time complexity of linear search?",
+    "options": [
+      "O(1)",
+      "O(log n)",
+      "O(n)",
+      "O(n\u00b2)"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "prompt": "22. What is the time complexity of binary search on a sorted array?",
+    "options": [
+      "O(n)",
+      "O(log n)",
+      "O(n\u00b2)",
+      "O(1)"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "prompt": "23. Which condition is necessary for applying binary search?",
+    "options": [
+      "Data must be unsorted",
+      "Data must be sorted",
+      "Data must be stored in a linked list",
+      "Data must contain unique elements only"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "prompt": "24. Which sorting algorithm repeatedly selects the minimum element and places it in the correct position?",
+    "options": [
+      "Bubble Sort",
+      "Selection Sort",
+      "Merge Sort",
+      "Quick Sort"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "prompt": "25. Which sorting algorithm repeatedly compares adjacent elements?",
+    "options": [
+      "Selection Sort",
+      "Merge Sort",
+      "Bubble Sort",
+      "Heap Sort"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "prompt": "26. Which data structure is commonly used to implement a priority queue efficiently?",
+    "options": [
+      "Heap",
+      "Stack",
+      "Linked List only",
+      "Array only"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "prompt": "27. In a max heap, the root node contains:",
+    "options": [
+      "The smallest element",
+      "The largest element",
+      "The middle element",
+      "A random element"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "prompt": "28. What is a hash table primarily used for?",
+    "options": [
+      "Sorting elements",
+      "Fast key-based searching and retrieval",
+      "Traversing trees",
+      "Implementing recursion"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "prompt": "29. What is a collision in hashing?",
+    "options": [
+      "Two keys having the same hash value",
+      "Deletion of a key",
+      "Sorting of keys",
+      "Empty hash table"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "prompt": "30. Which data structure is most suitable for representing a hierarchical organization such as a company's management structure?",
+    "options": [
+      "Stack",
+      "Queue",
+      "Tree",
+      "Array"
+    ],
+    "correctIndex": 2
+  }
+]
