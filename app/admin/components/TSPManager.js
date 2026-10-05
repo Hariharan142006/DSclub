@@ -1420,6 +1420,28 @@ export default function TSPManager() {
     }
   };
 
+  const handleRollbackStudent = async (tsp, memberId) => {
+    if (!confirm(`Are you sure you want to rollback student ` + memberId + `? This will delete their current score and submissions, allowing them to retake the exam.`)) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/tsp/reset-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tspId: tsp._id || tsp.id, memberId })
+      });
+      if (res.ok) {
+        alert('Successfully rolled back student!');
+        await fetchData();
+        setShowActiveParticipantsModal(false);
+      } else {
+        const err = await res.json();
+        alert('Failed to rollback: ' + err.error);
+      }
+    } catch (e) {
+      alert('Error rolling back student: ' + e.message);
+    }
+  };
   const handleResetTSPLeaderboard = async (tsp) => {
     if (!confirm(`⚠️ DANGER: Are you sure you want to RESET the leaderboard for "${tsp.title}"? All submissions and scores for this tsp will be permanently cleared!`)) {
       return;
@@ -4672,6 +4694,7 @@ export default function TSPManager() {
                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.25rem 0.6rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 700, background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
                                 ✅ Completed
                               </span>
+                              <button onClick={() => handleRollbackStudent(selectedTSPForManage, stu.memberId)} title="Rollback student to let them retake the exam" style={{ marginLeft: "0.5rem", background: "#ef4444", color: "#fff", border: "none", borderRadius: "4px", padding: "0.2rem 0.5rem", fontSize: "0.7rem", cursor: "pointer", fontWeight: "bold" }}>Rollback</button>
                             </td>
                             <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.8rem', color: '#94a3b8' }}>
                               {stu.completedAt ? new Date(stu.completedAt).toLocaleString() : 'Submitted / Exited'}
@@ -5505,6 +5528,9 @@ export default function TSPManager() {
     </div>
   );
 }
+
+
+
 
 
 
