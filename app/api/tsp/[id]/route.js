@@ -12,6 +12,21 @@ export async function GET(req, { params }) {
     if (!tsp) {
       return NextResponse.json({ error: 'TSP not found' }, { status: 404 });
     }
+    
+    if (tsp.activeParticipants && Array.isArray(tsp.activeParticipants)) {
+      const seen = new Set();
+      const unique = [];
+      for (let i = tsp.activeParticipants.length - 1; i >= 0; i--) {
+        const p = tsp.activeParticipants[i];
+        const mid = (p.memberId || '').trim().toUpperCase();
+        if (mid && !seen.has(mid)) {
+          seen.add(mid);
+          unique.unshift(p);
+        }
+      }
+      tsp.activeParticipants = unique;
+    }
+
     return NextResponse.json(tsp);
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

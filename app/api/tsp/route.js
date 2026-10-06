@@ -7,6 +7,25 @@ export async function GET() {
   try {
     await connectToDatabase();
     const tsps = await TSP.find().sort({ createdAt: -1 }).lean();
+    
+    // Deduplicate activeParticipants to prevent double-counting bugs
+    tsps.forEach(tsp => {
+      if (tsp.activeParticipants && Array.isArray(tsp.activeParticipants)) {
+        const seen = new Set();
+        const unique = [];
+        // Iterate backwards to keep the latest attempt
+        for (let i = tsp.activeParticipants.length - 1; i >= 0; i--) {
+          const p = tsp.activeParticipants[i];
+          const mid = (p.memberId || '').trim().toUpperCase();
+          if (mid && !seen.has(mid)) {
+            seen.add(mid);
+            unique.unshift(p);
+          }
+        }
+        tsp.activeParticipants = unique;
+      }
+    });
+
     return NextResponse.json(tsps);
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

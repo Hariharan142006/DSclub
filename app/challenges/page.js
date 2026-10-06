@@ -25,6 +25,29 @@ const normalizeOutputForComparison = (str) => {
 };
 
 export default function ChallengesPage() {
+  const checkIsCompleted = (contest, mid) => {
+    if (!mid || !contest) return false;
+    let checkIds = [mid];
+    if (contest.whitelistEnabled && Array.isArray(contest.whitelistedStudents)) {
+      const s = contest.whitelistedStudents.find(
+        w => w && ((w.identifier||'').trim().toUpperCase() === mid || (w.rollNo||'').trim().toUpperCase() === mid || (w.registerNo||'').trim().toUpperCase() === mid)
+      );
+      if (s) {
+        if(s.identifier) checkIds.push(String(s.identifier).trim().toUpperCase());
+        if(s.rollNo) checkIds.push(String(s.rollNo).trim().toUpperCase());
+        if(s.registerNo) checkIds.push(String(s.registerNo).trim().toUpperCase());
+      }
+    }
+    const checkSet = new Set(checkIds);
+    if (contest.completedMembers && contest.completedMembers.some(m => m && checkSet.has(String(m).trim().toUpperCase()))) return true;
+    if (contest.activeParticipants && contest.activeParticipants.some(p => p && p.memberId && checkSet.has(String(p.memberId).trim().toUpperCase()) && p.status === 'completed')) return true;
+    if (typeof window !== 'undefined') {
+      for (const id of checkSet) {
+        if (localStorage.getItem(`completed_contest_${contest._id || contest.id}_${id}`)) return true;
+      }
+    }
+    return false;
+  };
   const [challenges, setChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // 'all' | 'code' | 'quiz'
