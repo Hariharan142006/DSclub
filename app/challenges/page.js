@@ -790,13 +790,7 @@ export default function ChallengesPage() {
     const typedIdForCompleteCheck = memberIdInput.trim().toUpperCase();
     
     if (targetContest && typedIdForCompleteCheck) {
-      const isCompletedLocal = localStorage.getItem(`completed_contest_${targetContest._id || targetContest.id}_${typedIdForCompleteCheck}`);
-      const isCompletedDB = targetContest.completedMembers && targetContest.completedMembers.some(m => m && String(m).trim().toUpperCase() === typedIdForCompleteCheck);
-      const isCompletedPart = targetContest.activeParticipants && targetContest.activeParticipants.some(
-        p => p && p.memberId && String(p.memberId).trim().toUpperCase() === typedIdForCompleteCheck && p.status === 'completed'
-      );
-      
-      if (isCompletedLocal || isCompletedDB || isCompletedPart) {
+      if (checkIsCompleted(targetContest, typedIdForCompleteCheck)) {
         setVerifyError(`⛔ You (${typedIdForCompleteCheck}) have already completed or exited this arena. Re-entry is strictly prohibited.`);
         setVerifying(false);
         return;
@@ -906,12 +900,7 @@ export default function ChallengesPage() {
         }
       } catch (e) {}
     }
-    const isCompletedDB = activeTSP.completedMembers && cleanMid && activeTSP.completedMembers.some(m => m && String(m).trim().toUpperCase() === cleanMid);
-    const isCompletedLocal = typeof window !== 'undefined' && cleanMid && localStorage.getItem(`completed_contest_${activeTSP._id || activeTSP.id}_${cleanMid}`);
-    const isCompletedParticipant = activeTSP.activeParticipants && cleanMid && activeTSP.activeParticipants.some(
-      p => p && p.memberId && String(p.memberId).trim().toUpperCase() === cleanMid && p.status === 'completed'
-    );
-    if (isCompletedDB || isCompletedLocal || isCompletedParticipant) {
+    if (checkIsCompleted(activeTSP, cleanMid)) {
       alert(`⛔ You (${cleanMid}) have already completed or exited this TSP arena. Re-entry is strictly prohibited.`);
       return;
     }
@@ -1772,10 +1761,7 @@ for __fn_name in ['solve', 'main', 'solution']:
                     {(() => {
                       const currentMemberId = verifiedMemberRef.current?.memberId || verifiedMember?.memberId || (typeof window !== 'undefined' && sessionStorage.getItem('dsc_verified_member') ? JSON.parse(sessionStorage.getItem('dsc_verified_member')).memberId : null);
                       const cleanMid = currentMemberId ? String(currentMemberId).trim().toUpperCase() : null;
-                      const isCompletedDB = cleanMid && c.completedMembers && c.completedMembers.some(m => m && String(m).trim().toUpperCase() === cleanMid);
-                      const isCompletedPart = cleanMid && c.activeParticipants && c.activeParticipants.some(p => p && p.memberId && String(p.memberId).trim().toUpperCase() === cleanMid && p.status === 'completed');
-                      const isCompletedLocal = typeof window !== 'undefined' && cleanMid && localStorage.getItem(`completed_contest_${c._id || c.id}_${cleanMid}`);
-                      const isCompleted = isCompletedDB || isCompletedPart || isCompletedLocal;
+                      const isCompleted = checkIsCompleted(c, cleanMid);
 
                       if (isCompleted) {
                         return (
@@ -1864,12 +1850,7 @@ for __fn_name in ['solve', 'main', 'solution']:
                     {(() => {
                       const currentMemberId = verifiedMemberRef.current?.memberId || verifiedMember?.memberId || (typeof window !== 'undefined' && sessionStorage.getItem('dsc_verified_member') ? JSON.parse(sessionStorage.getItem('dsc_verified_member')).memberId : null);
                       const cleanMid = currentMemberId ? String(currentMemberId).trim().toUpperCase() : null;
-                      const isCompletedDB = c.completedMembers && cleanMid && c.completedMembers.some(m => m && String(m).trim().toUpperCase() === cleanMid);
-                      const isCompletedLocal = typeof window !== 'undefined' && cleanMid && localStorage.getItem(`completed_contest_${c._id || c.id}_${cleanMid}`);
-                      const isCompletedPart = c.activeParticipants && cleanMid && c.activeParticipants.some(
-                        p => p && p.memberId && String(p.memberId).trim().toUpperCase() === cleanMid && p.status === 'completed'
-                      );
-                      const isCompleted = isCompletedDB || isCompletedLocal || isCompletedPart;
+                      const isCompleted = checkIsCompleted(c, cleanMid);
 
                       if (isCompleted) {
                         return (
@@ -1905,12 +1886,7 @@ for __fn_name in ['solve', 'main', 'solution']:
                               } catch (e) {}
                             }
                             if (cleanMid) {
-                              const isCompDB = activeContestItem.completedMembers && activeContestItem.completedMembers.some(m => m && String(m).trim().toUpperCase() === cleanMid);
-                              const isCompLoc = typeof window !== 'undefined' && localStorage.getItem(`completed_contest_${activeContestItem._id || activeContestItem.id}_${cleanMid}`);
-                              const isCompPart = activeContestItem.activeParticipants && activeContestItem.activeParticipants.some(
-                                p => p && p.memberId && String(p.memberId).trim().toUpperCase() === cleanMid && p.status === 'completed'
-                              );
-                              if (isCompDB || isCompLoc || isCompPart) {
+                              if (checkIsCompleted(activeContestItem, cleanMid)) {
                                 alert(`⛔ You (${cleanMid}) have already completed or exited this contest arena. Re-entry is strictly prohibited.`);
                                 return;
                               }
@@ -3073,12 +3049,7 @@ for __fn_name in ['solve', 'main', 'solution']:
                           const parsed = JSON.parse(saved);
                           if (selectedContestForOnboarding && parsed?.memberId) {
                             const mid = parsed.memberId.toUpperCase();
-                            const isCompletedLocal = localStorage.getItem(`completed_contest_${selectedContestForOnboarding._id || selectedContestForOnboarding.id}_${mid}`);
-                            const isCompletedDB = selectedContestForOnboarding.completedMembers && selectedContestForOnboarding.completedMembers.some(m => m && String(m).trim().toUpperCase() === mid);
-                            const isCompletedPart = selectedContestForOnboarding.activeParticipants && selectedContestForOnboarding.activeParticipants.some(
-                              p => p && p.memberId && String(p.memberId).trim().toUpperCase() === mid && p.status === 'completed'
-                            );
-                            if (isCompletedLocal || isCompletedDB || isCompletedPart) {
+                            if (checkIsCompleted(selectedContestForOnboarding, mid)) {
                               alert(`⛔ You (${mid}) have already completed or exited this ${selectedContestForOnboarding.isTSP ? 'TSP' : 'contest'}. You cannot rejoin it.`);
                               return;
                             }
@@ -3200,12 +3171,7 @@ for __fn_name in ['solve', 'main', 'solution']:
                         const currentMember = verifiedMemberRef.current || verifiedMember || (sessionStorage.getItem('dsc_verified_member') ? JSON.parse(sessionStorage.getItem('dsc_verified_member')) : null);
                         if (currentMember?.memberId) {
                           const mid = currentMember.memberId.toUpperCase();
-                          const isCompDB = selectedContestForOnboarding.completedMembers && selectedContestForOnboarding.completedMembers.some(m => m && String(m).trim().toUpperCase() === mid);
-                          const isCompLoc = typeof window !== 'undefined' && localStorage.getItem(`completed_contest_${selectedContestForOnboarding._id || selectedContestForOnboarding.id}_${mid}`);
-                          const isCompPart = selectedContestForOnboarding.activeParticipants && selectedContestForOnboarding.activeParticipants.some(
-                            p => p && p.memberId && String(p.memberId).trim().toUpperCase() === mid && p.status === 'completed'
-                          );
-                          if (isCompDB || isCompLoc || isCompPart) {
+                          if (checkIsCompleted(selectedContestForOnboarding, mid)) {
                             alert(`⛔ You (${mid}) have already completed or exited this ${selectedContestForOnboarding.isTSP ? 'TSP' : 'contest'} arena. Re-entry is strictly prohibited.`);
                             return;
                           }
